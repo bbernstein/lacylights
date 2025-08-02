@@ -1,0 +1,173 @@
+#!/bin/bash
+
+# LacyLights Mac App Launcher
+# This script is the main executable for the LacyLights.app bundle
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+APP_DIR="$( cd "$SCRIPT_DIR/../.." && pwd )"
+LACYLIGHTS_DIR="$( cd "$APP_DIR/.." && pwd )"
+
+# Change to the lacylights directory
+cd "$LACYLIGHTS_DIR"
+
+# Check if this is first run (no sub-repos exist)
+FIRST_RUN=true
+for repo in lacylights-fe lacylights-node lacylights-mcp; do
+    if [ -d "$repo" ]; then
+        FIRST_RUN=false
+        break
+    fi
+done
+
+# Function to show dialog
+show_dialog() {
+    local title="$1"
+    local message="$2"
+    local buttons="${3:-OK}"
+    
+    osascript -e "display dialog \"$message\" with title \"$title\" buttons {$buttons} default button 1"
+}
+
+# Function to get text input
+get_text_input() {
+    local title="$1"
+    local prompt="$2"
+    local default_value="$3"
+    
+    osascript -e "display dialog \"$prompt\" default answer \"$default_value\" with title \"$title\" buttons {\"Cancel\", \"OK\"} default button \"OK\"" | awk -F: '{print $NF}'
+}
+
+# Function to show notification
+show_notification() {
+    local title="$1"
+    local message="$2"
+    
+    osascript -e "display notification \"$message\" with title \"$title\""
+}
+
+# If first run, show setup wizard
+if [ "$FIRST_RUN" = true ]; then
+    # Welcome dialog
+    result=$(show_dialog "Welcome to LacyLights" "This appears to be your first time running LacyLights. Would you like to set up the platform now?" "\"Cancel\", \"Setup\"")
+    
+    if [[ ! "$result" =~ "Setup" ]]; then
+        exit 0
+    fi
+    
+    # Try to detect GitHub organization from current repo
+    detected_org=""
+    if [ -d ".git" ]; then
+        remote_url=$(git config --get remote.origin.url 2>/dev/null)
+        if [ ! -z "$remote_url" ]; then
+            # Extract organization from URL
+            if [[ "$remote_url" =~ github\.com[:/]([^/]+)/[^/]+\.git$ ]]; then
+                detected_org="${BASH_REMATCH[1]}"
+            elif [[ "$remote_url" =~ github\.com[:/]([^/]+)/[^/]+ ]]; then
+                detected_org="${BASH_REMATCH[1]}"
+            fi
+        fi
+    fi
+    
+    # Get GitHub organization with detected default
+    github_org=$(get_text_input "GitHub Setup" "Enter your GitHub organization name (or leave blank to enter URLs manually):" "$detected_org")
+    
+    # Run setup in Terminal
+    osascript <<EOF
+tell application "Terminal"
+    activate
+    do script "cd '$LACYLIGHTS_DIR' && ./setup.sh $github_org"
+    
+    -- Wait for setup to complete
+    delay 2
+    repeat
+        delay 1
+        if not busy of window 1 then exit repeat
+    end repeat
+    
+    -- Keep terminal open for user to see results
+    delay 3
+end tell
+EOF
+    
+    # Wait for Terminal to finish
+    sleep 5
+    
+    # Check if setup was successful
+    if [ ! -d "lacylights-node" ] || [ ! -d "lacylights-fe" ]; then
+        show_dialog "Setup Error" "Setup did not complete successfully. Please check the Terminal window for errors."
+        exit 1
+    fi
+fi
+
+# Check if OpenAI API key is needed
+if [ -d "lacylights-mcp" ] && [ -f "lacylights-mcp/.env" ]; then
+    if grep -q "OPENAI_API_KEY=your-api-key-here" "lacylights-mcp/.env"; then
+        result=$(show_dialog "AI Configuration" "Would you like to configure your OpenAI API key for AI features?" "\"Later\", \"Configure\"")
+        
+        if [[ "$result" =~ "Configure" ]]; then
+            api_key=$(get_text_input "OpenAI API Key" "Enter your OpenAI API key:" "")
+            
+            if [ ! -z "$api_key" ]; then
+                # Update the .env file
+                sed -i '' "s/OPENAI_API_KEY=your-api-key-here/OPENAI_API_KEY=$api_key/" "lacylights-mcp/.env"
+                show_notification "Configuration Updated" "OpenAI API key has been saved"
+            fi
+        fi
+    fi
+fi
+
+# Create a temporary script that will run in Terminal
+cat > /tmp/lacylights_launcher.sh << 'LAUNCHER_EOF'
+#!/bin/bash
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}LacyLights Platform Launcher${NC}"
+echo "============================"
+echo ""
+
+cd "LACYLIGHTS_DIR_PLACEHOLDER"
+
+# Check if start.sh exists
+if [ ! -f "start.sh" ]; then
+    echo "Error: start.sh not found"
+    echo "Please run setup.sh first"
+    exit 1
+fi
+
+# Ask about MCP
+echo "Would you like to start the AI integration server (MCP)?"
+echo "Note: This requires an OpenAI API key configured in lacylights-mcp/.env"
+echo ""
+echo -n "Start with MCP? [y/N] "
+read -r response
+
+if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    echo ""
+    echo -e "${GREEN}Starting LacyLights with AI integration...${NC}"
+    ./start.sh --with-mcp
+else
+    echo ""
+    echo -e "${GREEN}Starting LacyLights...${NC}"
+    ./start.sh
+fi
+LAUNCHER_EOF
+
+# Replace placeholder with actual directory
+sed -i '' "s|LACYLIGHTS_DIR_PLACEHOLDER|$LACYLIGHTS_DIR|" /tmp/lacylights_launcher.sh
+chmod +x /tmp/lacylights_launcher.sh
+
+# Launch in Terminal
+osascript <<EOF
+tell application "Terminal"
+    activate
+    do script "/tmp/lacylights_launcher.sh"
+end tell
+EOF
+
+# Clean up after a delay
+(sleep 10 && rm -f /tmp/lacylights_launcher.sh) &
