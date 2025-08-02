@@ -8,7 +8,7 @@ The LacyLights system consists of three main components:
 
 ### 🎭 lacylights-node - Backend Engine
 A professional stage lighting control system built with Node.js, GraphQL, and TypeScript. This server provides:
-- **GraphQL API** with real-time subscriptions (not REST)
+- **GraphQL API** with real-time subscriptions
 - Multi-universe DMX512 control with priority system
 - Scene and cue list management with preview capabilities
 - Fixture library with built-in and custom fixture definitions
@@ -88,14 +88,14 @@ To run the complete LacyLights system:
    ```bash
    cd lacylights-node
    npm install
-   
+
    # Start PostgreSQL and Redis with Docker (recommended)
    npm run docker:db
-   
+
    # Set up the database
    npm run db:generate
    npm run db:migrate
-   
+
    # Start development server
    npm run dev
    ```
@@ -105,10 +105,10 @@ To run the complete LacyLights system:
    ```bash
    cd lacylights-fe
    npm install
-   
+
    # Copy environment configuration
    cp .env.example .env.local
-   
+
    # Start development server
    npm run dev
    ```
@@ -118,11 +118,11 @@ To run the complete LacyLights system:
    ```bash
    cd lacylights-mcp
    npm install
-   
+
    # Set up environment
    cp .env.example .env
    # Edit .env to add your OPENAI_API_KEY
-   
+
    # Build and start
    npm run build
    npm start
