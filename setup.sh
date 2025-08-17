@@ -43,6 +43,15 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to check if lacylights-node directory exists and cd into it
+lacylights_node_exists() {
+    if [ -d "lacylights-node" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Function to detect GitHub organization from current repo
 detect_github_org() {
     local org=""
@@ -358,7 +367,7 @@ EOF
 setup_database() {
     print_status "Setting up database..."
     
-    if [ -d "lacylights-node" ]; then
+    if lacylights_node_exists; then
         cd "lacylights-node"
         
         # Generate Prisma client
@@ -385,21 +394,37 @@ setup_database() {
 check_and_import_fixtures() {
     print_status "Checking fixture definitions..."
     
-    if [ -d "lacylights-node" ]; then
+    if lacylights_node_exists; then
         cd "lacylights-node"
         
-        # Check if the fixture import script exists
-        if [ -f "scripts/check-and-import-fixtures.ts" ]; then
-            print_status "Checking for existing fixture definitions..."
+        # Allow user to override the fixture script path via environment variable
+        FIXTURE_SCRIPT_PATHS=()
+        if [ -n "$FIXTURE_SCRIPT_PATH" ]; then
+            FIXTURE_SCRIPT_PATHS+=("$FIXTURE_SCRIPT_PATH")
+        fi
+        # Add default possible locations
+        FIXTURE_SCRIPT_PATHS+=("scripts/check-and-import-fixtures.ts" "check-and-import-fixtures.ts")
+        
+        FOUND_FIXTURE_SCRIPT=""
+        for path in "${FIXTURE_SCRIPT_PATHS[@]}"; do
+            if [ -f "$path" ]; then
+                FOUND_FIXTURE_SCRIPT="$path"
+                break
+            fi
+        done
+        
+        if [ -n "$FOUND_FIXTURE_SCRIPT" ]; then
+            print_status "Checking for existing fixture definitions using $FOUND_FIXTURE_SCRIPT..."
             
-            # Run the fixture check and import script
-            npx tsx scripts/check-and-import-fixtures.ts || {
+            # Run the fixture check and import script, capturing error output
+            ERROR_MSG=$(npx tsx "$FOUND_FIXTURE_SCRIPT" 2>&1) || {
                 print_warning "Could not check/import fixtures. You may need to import them manually."
+                echo -e "${YELLOW}Error output:${NC}\n${ERROR_MSG}"
                 cd ..
                 return 1
             }
         else
-            print_warning "Fixture import script not found. Skipping fixture import."
+            print_warning "Fixture import script not found in any known location. Skipping fixture import."
         fi
         
         cd ..
@@ -412,7 +437,7 @@ check_and_import_fixtures() {
 start_database_containers() {
     print_status "Starting database containers..."
     
-    if [ -d "lacylights-node" ]; then
+    if lacylights_node_exists; then
         cd "lacylights-node"
         
         # Check if docker-compose.yml exists
