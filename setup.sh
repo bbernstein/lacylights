@@ -418,15 +418,31 @@ check_and_import_fixtures() {
                 print_status "Checking for existing fixture definitions using $FOUND_FIXTURE_SCRIPT..."
                 
                 # Run the fixture check and import script, capturing output
-                OUTPUT_MSG=$(npx tsx "$FOUND_FIXTURE_SCRIPT" 2>&1) || {
+                OUTPUT_MSG=$(npx tsx "$FOUND_FIXTURE_SCRIPT" 2>&1)
+                local exit_code=$?
+                
+                if [ $exit_code -eq 0 ]; then
+                    # Show success output if there's meaningful content
+                    if echo "$OUTPUT_MSG" | grep -q "fixtures imported\|fixtures already exist\|fixture"; then
+                        print_success "Fixture definitions processed successfully"
+                        echo "$OUTPUT_MSG" | grep -E "imported|exist|added|found" || true
+                    else
+                        print_success "Fixture check completed"
+                    fi
+                else
                     print_warning "Could not check/import fixtures. You may need to import them manually."
                     echo -e "${YELLOW}Error output:${NC}\n${OUTPUT_MSG}"
-                    return 1
-                }
+                    exit 1
+                fi
             else
                 print_warning "Fixture import script not found in any known location. Skipping fixture import."
             fi
         )
+        
+        # Check if subshell failed
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
     fi
     
     echo ""
@@ -445,7 +461,7 @@ start_database_containers() {
                 print_status "Starting PostgreSQL and Redis containers..."
                 docker-compose up -d postgres redis >/dev/null 2>&1 || {
                     print_warning "Could not start database containers"
-                    return 1
+                    exit 1
                 }
                 
                 # Wait for PostgreSQL to be ready
@@ -468,6 +484,11 @@ start_database_containers() {
                 fi
             fi
         )
+        
+        # Check if subshell failed
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
     fi
     
     echo ""
