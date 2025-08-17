@@ -368,23 +368,23 @@ setup_database() {
     print_status "Setting up database..."
     
     if lacylights_node_exists; then
-        cd "lacylights-node"
-        
-        # Generate Prisma client
-        if [ -f "package.json" ] && grep -q "prisma" "package.json"; then
-            print_status "Generating Prisma client..."
-            npm run db:generate 2>/dev/null || npx prisma generate || {
-                print_warning "Could not generate Prisma client"
-            }
+        (
+            cd "lacylights-node"
             
-            # Run migrations
-            print_status "Running database migrations..."
-            npm run db:migrate 2>/dev/null || npx prisma migrate deploy || {
-                print_warning "Could not run migrations. You may need to run them manually."
-            }
-        fi
-        
-        cd ..
+            # Generate Prisma client
+            if [ -f "package.json" ] && grep -q "prisma" "package.json"; then
+                print_status "Generating Prisma client..."
+                npm run db:generate 2>/dev/null || npx prisma generate || {
+                    print_warning "Could not generate Prisma client"
+                }
+                
+                # Run migrations
+                print_status "Running database migrations..."
+                npm run db:migrate 2>/dev/null || npx prisma migrate deploy || {
+                    print_warning "Could not run migrations. You may need to run them manually."
+                }
+            fi
+        )
     fi
     
     echo ""
@@ -395,39 +395,38 @@ check_and_import_fixtures() {
     print_status "Checking fixture definitions..."
     
     if lacylights_node_exists; then
-        cd "lacylights-node"
-        
-        # Allow user to override the fixture script path via environment variable
-        FIXTURE_SCRIPT_PATHS=()
-        if [ -n "$FIXTURE_SCRIPT_PATH" ]; then
-            FIXTURE_SCRIPT_PATHS+=("$FIXTURE_SCRIPT_PATH")
-        fi
-        # Add default possible locations
-        FIXTURE_SCRIPT_PATHS+=("scripts/check-and-import-fixtures.ts" "check-and-import-fixtures.ts")
-        
-        FOUND_FIXTURE_SCRIPT=""
-        for path in "${FIXTURE_SCRIPT_PATHS[@]}"; do
-            if [ -f "$path" ]; then
-                FOUND_FIXTURE_SCRIPT="$path"
-                break
-            fi
-        done
-        
-        if [ -n "$FOUND_FIXTURE_SCRIPT" ]; then
-            print_status "Checking for existing fixture definitions using $FOUND_FIXTURE_SCRIPT..."
+        (
+            cd "lacylights-node"
             
-            # Run the fixture check and import script, capturing error output
-            ERROR_MSG=$(npx tsx "$FOUND_FIXTURE_SCRIPT" 2>&1) || {
-                print_warning "Could not check/import fixtures. You may need to import them manually."
-                echo -e "${YELLOW}Error output:${NC}\n${ERROR_MSG}"
-                cd ..
-                return 1
-            }
-        else
-            print_warning "Fixture import script not found in any known location. Skipping fixture import."
-        fi
-        
-        cd ..
+            # Allow user to override the fixture script path via environment variable
+            FIXTURE_SCRIPT_PATHS=()
+            if [ -n "$FIXTURE_SCRIPT_PATH" ]; then
+                FIXTURE_SCRIPT_PATHS+=("$FIXTURE_SCRIPT_PATH")
+            fi
+            # Add default possible locations
+            FIXTURE_SCRIPT_PATHS+=("scripts/check-and-import-fixtures.ts" "check-and-import-fixtures.ts")
+            
+            FOUND_FIXTURE_SCRIPT=""
+            for path in "${FIXTURE_SCRIPT_PATHS[@]}"; do
+                if [ -f "$path" ]; then
+                    FOUND_FIXTURE_SCRIPT="$path"
+                    break
+                fi
+            done
+            
+            if [ -n "$FOUND_FIXTURE_SCRIPT" ]; then
+                print_status "Checking for existing fixture definitions using $FOUND_FIXTURE_SCRIPT..."
+                
+                # Run the fixture check and import script, capturing output
+                OUTPUT_MSG=$(npx tsx "$FOUND_FIXTURE_SCRIPT" 2>&1) || {
+                    print_warning "Could not check/import fixtures. You may need to import them manually."
+                    echo -e "${YELLOW}Error output:${NC}\n${OUTPUT_MSG}"
+                    return 1
+                }
+            else
+                print_warning "Fixture import script not found in any known location. Skipping fixture import."
+            fi
+        )
     fi
     
     echo ""
@@ -438,38 +437,37 @@ start_database_containers() {
     print_status "Starting database containers..."
     
     if lacylights_node_exists; then
-        cd "lacylights-node"
-        
-        # Check if docker-compose.yml exists
-        if [ -f "docker-compose.yml" ]; then
-            print_status "Starting PostgreSQL and Redis containers..."
-            docker-compose up -d postgres redis >/dev/null 2>&1 || {
-                print_warning "Could not start database containers"
-                cd ..
-                return 1
-            }
+        (
+            cd "lacylights-node"
             
-            # Wait for PostgreSQL to be ready
-            print_status "Waiting for PostgreSQL to be ready..."
-            local db_ready=false
-            for i in {1..30}; do
-                if docker-compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
-                    db_ready=true
-                    break
+            # Check if docker-compose.yml exists
+            if [ -f "docker-compose.yml" ]; then
+                print_status "Starting PostgreSQL and Redis containers..."
+                docker-compose up -d postgres redis >/dev/null 2>&1 || {
+                    print_warning "Could not start database containers"
+                    return 1
+                }
+                
+                # Wait for PostgreSQL to be ready
+                print_status "Waiting for PostgreSQL to be ready..."
+                local db_ready=false
+                for i in {1..30}; do
+                    if docker-compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
+                        db_ready=true
+                        break
+                    fi
+                    printf "."
+                    sleep 1
+                done
+                echo ""
+                
+                if [ "$db_ready" = true ]; then
+                    print_success "Database containers are running"
+                else
+                    print_warning "PostgreSQL is taking longer than expected to start"
                 fi
-                printf "."
-                sleep 1
-            done
-            echo ""
-            
-            if [ "$db_ready" = true ]; then
-                print_success "Database containers are running"
-            else
-                print_warning "PostgreSQL is taking longer than expected to start"
             fi
-        fi
-        
-        cd ..
+        )
     fi
     
     echo ""
