@@ -16,7 +16,7 @@ A professional stage lighting control system built with Node.js, GraphQL, and Ty
 - PostgreSQL database with Prisma ORM
 - Docker support for easy deployment
 
-**Repository**: [lacylights-node](../lacylights-node)
+**Repository**: [lacylights-node](https://github.com/bbernstein/lacylights-node)
 
 ### 🖥️ lacylights-fe - Frontend Web Interface
 A Next.js 15-based web frontend built with TypeScript and Tailwind CSS. It provides:
@@ -28,7 +28,7 @@ A Next.js 15-based web frontend built with TypeScript and Tailwind CSS. It provi
 - Apollo Client for GraphQL integration with WebSocket subscriptions
 - Responsive design for various devices
 
-**Repository**: [lacylights-fe](../lacylights-fe)
+**Repository**: [lacylights-fe](https://github.com/bbernstein/lacylights-fe)
 
 ### 🤖 lacylights-mcp - AI Integration Server
 An MCP (Model Context Protocol) server that provides AI-powered theatrical lighting design capabilities:
@@ -39,7 +39,7 @@ An MCP (Model Context Protocol) server that provides AI-powered theatrical light
 - **RAG System** - Vector-based pattern matching for intelligent lighting suggestions
 - Integration with Claude and other AI assistants via MCP protocol
 
-**Repository**: [lacylights-mcp](../lacylights-mcp)
+**Repository**: [lacylights-mcp](https://github.com/bbernstein/lacylights-mcp)
 
 ## How It Works
 
