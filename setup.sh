@@ -425,7 +425,7 @@ check_and_import_fixtures() {
                     # Show success output if there's meaningful content
                     if echo "$OUTPUT_MSG" | grep -q "fixtures imported\|fixtures already exist\|fixtures found\|fixtures loaded"; then
                         print_success "Fixture definitions processed successfully"
-                        echo "$OUTPUT_MSG" | grep -E "imported|exist|added|found|loaded" || true
+                        echo "$OUTPUT_MSG" | grep -E "imported|\bexist\b|added|found|loaded" || true
                     else
                         print_success "Fixture check completed"
                     fi
@@ -433,7 +433,7 @@ check_and_import_fixtures() {
                     print_warning "Could not check/import fixtures. You may need to import them manually."
                     echo -e "${YELLOW}Error output:${NC}\n${OUTPUT_MSG}"
                     # Note: Using 'exit 1' here is correct - it exits the subshell with error status,
-                    # which is then captured by $? after the subshell closes
+                    # and $? is set to the subshell's exit code immediately after the subshell finishes
                     exit 1
                 fi
             else
