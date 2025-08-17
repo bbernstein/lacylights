@@ -381,6 +381,33 @@ setup_database() {
     echo ""
 }
 
+# Function to check and import fixture definitions
+check_and_import_fixtures() {
+    print_status "Checking fixture definitions..."
+    
+    if [ -d "lacylights-node" ]; then
+        cd "lacylights-node"
+        
+        # Check if the fixture import script exists
+        if [ -f "scripts/check-and-import-fixtures.ts" ]; then
+            print_status "Checking for existing fixture definitions..."
+            
+            # Run the fixture check and import script
+            npx tsx scripts/check-and-import-fixtures.ts || {
+                print_warning "Could not check/import fixtures. You may need to import them manually."
+                cd ..
+                return 1
+            }
+        else
+            print_warning "Fixture import script not found. Skipping fixture import."
+        fi
+        
+        cd ..
+    fi
+    
+    echo ""
+}
+
 # Function to start database containers
 start_database_containers() {
     print_status "Starting database containers..."
@@ -480,13 +507,16 @@ main() {
     # Setup environment files
     setup_environment
     
-    # Setup database
-    setup_database
-    
     # Start database containers if Docker is running
     if command_exists docker && docker info >/dev/null 2>&1; then
         start_database_containers
     fi
+    
+    # Setup database
+    setup_database
+    
+    # Check and import fixture definitions
+    check_and_import_fixtures
     
     # Ensure all scripts are executable
     for script in start.sh stop.sh logs.sh update.sh; do
