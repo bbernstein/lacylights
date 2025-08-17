@@ -423,15 +423,17 @@ check_and_import_fixtures() {
                 
                 if [ $exit_code -eq 0 ]; then
                     # Show success output if there's meaningful content
-                    if echo "$OUTPUT_MSG" | grep -q "fixtures imported\|fixtures already exist\|fixture"; then
+                    if echo "$OUTPUT_MSG" | grep -q "fixtures imported\|fixtures already exist\|fixtures found\|fixtures loaded"; then
                         print_success "Fixture definitions processed successfully"
-                        echo "$OUTPUT_MSG" | grep -E "imported|exist|added|found" || true
+                        echo "$OUTPUT_MSG" | grep -E "imported|exist|added|found|loaded" || true
                     else
                         print_success "Fixture check completed"
                     fi
                 else
                     print_warning "Could not check/import fixtures. You may need to import them manually."
                     echo -e "${YELLOW}Error output:${NC}\n${OUTPUT_MSG}"
+                    # Note: Using 'exit 1' here is correct - it exits the subshell with error status,
+                    # which is then captured by $? after the subshell closes
                     exit 1
                 fi
             else
@@ -439,7 +441,7 @@ check_and_import_fixtures() {
             fi
         )
         
-        # Check if subshell failed
+        # Check if subshell failed (exit 1 in subshell sets $? to 1)
         if [ $? -ne 0 ]; then
             return 1
         fi
@@ -461,6 +463,7 @@ start_database_containers() {
                 print_status "Starting PostgreSQL and Redis containers..."
                 docker-compose up -d postgres redis >/dev/null 2>&1 || {
                     print_warning "Could not start database containers"
+                    # Note: Using 'exit 1' here is correct - it exits the subshell with error status
                     exit 1
                 }
                 
@@ -485,7 +488,7 @@ start_database_containers() {
             fi
         )
         
-        # Check if subshell failed
+        # Check if subshell failed (exit 1 in subshell sets $? to 1)
         if [ $? -ne 0 ]; then
             return 1
         fi
