@@ -33,12 +33,12 @@ print_warning() {
 has_uncommitted_changes() {
     local repo_dir="$1"
     if [ -d "$repo_dir/.git" ]; then
-        cd "$repo_dir"
+        pushd "$repo_dir" >/dev/null
         if ! git diff --quiet || ! git diff --cached --quiet; then
-            cd ..
+            popd >/dev/null
             return 0  # Has uncommitted changes
         fi
-        cd ..
+        popd >/dev/null
     fi
     return 1  # No uncommitted changes
 }
@@ -47,17 +47,17 @@ has_uncommitted_changes() {
 has_unpushed_commits() {
     local repo_dir="$1"
     if [ -d "$repo_dir/.git" ]; then
-        cd "$repo_dir"
+        pushd "$repo_dir" >/dev/null
         local upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")
         if [ ! -z "$upstream" ]; then
             local local_commit=$(git rev-parse HEAD)
             local remote_commit=$(git rev-parse "$upstream" 2>/dev/null || echo "")
             if [ "$local_commit" != "$remote_commit" ]; then
-                cd ..
+                popd >/dev/null
                 return 0  # Has unpushed commits
             fi
         fi
-        cd ..
+        popd >/dev/null
     fi
     return 1  # No unpushed commits
 }
@@ -70,21 +70,21 @@ check_repo_updates() {
     print_status "Checking $repo_name for updates..."
     
     if [ ! -d "$repo_dir" ]; then
-        print_warning "$repo_name not found at $repo_dir"
+        print_warning "$repo_name not found at $(pwd)/$repo_dir"
         return 1
     fi
     
     if [ ! -d "$repo_dir/.git" ]; then
-        print_warning "$repo_name is not a git repository"
+        print_warning "$repo_name is not a git repository (no .git directory found in $(pwd)/$repo_dir)"
         return 1
     fi
     
-    cd "$repo_dir"
+    pushd "$repo_dir" >/dev/null
     
     # Fetch latest changes from remote
     git fetch origin >/dev/null 2>&1 || {
         print_error "Failed to fetch updates for $repo_name"
-        cd ..
+        popd >/dev/null
         return 1
     }
     
@@ -97,13 +97,13 @@ check_repo_updates() {
     
     if [ -z "$remote_commit" ]; then
         print_warning "No remote branch origin/$current_branch found"
-        cd ..
+        popd >/dev/null
         return 0
     fi
     
     if [ "$local_commit" = "$remote_commit" ]; then
         print_success "$repo_name is up to date"
-        cd ..
+        popd >/dev/null
         return 0
     fi
     
@@ -111,7 +111,7 @@ check_repo_updates() {
     local commits_behind=$(git rev-list --count HEAD..origin/"$current_branch")
     print_warning "$repo_name is $commits_behind commit(s) behind origin/$current_branch"
     
-    cd ..
+    popd >/dev/null
     return 2  # Updates available
 }
 
@@ -123,7 +123,7 @@ update_repo() {
     
     print_status "Updating $repo_name..."
     
-    cd "$repo_dir"
+    pushd "$repo_dir" >/dev/null
     
     # Get current branch
     local current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -132,7 +132,7 @@ update_repo() {
     if has_uncommitted_changes "."; then
         print_error "$repo_name has uncommitted changes"
         print_warning "Please commit or stash your changes before updating"
-        cd ..
+        popd >/dev/null
         return 1
     fi
     
@@ -160,11 +160,11 @@ update_repo() {
             fi
         fi
         
-        cd ..
+        popd >/dev/null
         return 0
     else
         print_error "Failed to update $repo_name"
-        cd ..
+        popd >/dev/null
         return 1
     fi
 }
@@ -248,6 +248,17 @@ prompt_for_update() {
 main() {
     local auto_update=false
     local check_only=false
+    
+    # Get the directory where this script is located and ensure we're there
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    cd "$SCRIPT_DIR"
+    
+    # Verify we're in the lacylights directory
+    if [ ! -f "start.sh" ] || [ ! -f "setup.sh" ]; then
+        print_error "This script must be run from the lacylights directory"
+        print_error "Current directory: $(pwd)"
+        exit 1
+    fi
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
