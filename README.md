@@ -82,7 +82,38 @@ An MCP (Model Context Protocol) server that provides AI-powered theatrical light
 
 ## Getting Started
 
-To run the complete LacyLights system:
+### Quick Start with Scripts
+
+The easiest way to get started is using our automated scripts:
+
+```bash
+# Initial setup - clones all repositories and installs dependencies
+./setup.sh [your-github-username]
+
+# Check for updates across all repositories
+./update.sh --check
+
+# Update all repositories to latest versions
+./update.sh
+
+# Start all services
+./start.sh
+
+# Start with AI integration
+./start.sh --with-mcp
+```
+
+### macOS App
+
+On macOS, you can use the LacyLights.app which provides:
+- Automatic update checking on launch
+- GUI prompts for configuration
+- Integrated terminal management
+- Easy setup wizard for first-time users
+
+### Manual Setup
+
+To run the complete LacyLights system manually:
 
 1. **Start the Backend Engine**:
    ```bash
