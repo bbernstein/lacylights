@@ -49,7 +49,7 @@ has_unpushed_commits() {
     if [ -d "$repo_dir/.git" ]; then
         pushd "$repo_dir" >/dev/null
         local upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")
-        if [ ! -z "$upstream" ]; then
+        if [[ -n "$upstream" ]]; then
             local local_commit=$(git rev-parse HEAD)
             local remote_commit=$(git rev-parse "$upstream" 2>/dev/null || echo "")
             if [ "$local_commit" != "$remote_commit" ]; then
@@ -95,7 +95,7 @@ check_repo_updates() {
     local local_commit=$(git rev-parse HEAD)
     local remote_commit=$(git rev-parse "origin/$current_branch" 2>/dev/null || echo "")
     
-    if [ -z "$remote_commit" ]; then
+    if [[ -z "$remote_commit" ]]; then
         print_warning "No remote branch origin/$current_branch found"
         popd >/dev/null
         return 0
@@ -145,7 +145,10 @@ update_repo() {
         if git diff HEAD~1 HEAD --name-only | grep -q "package.json"; then
             print_status "Package.json changed, installing dependencies..."
             if [ -f "package-lock.json" ]; then
-                npm ci || npm install
+                if ! npm ci; then
+                    print_warning "npm ci failed in $repo_name, falling back to npm install. This may indicate a problem with your dependencies or lockfile."
+                    npm install
+                fi
             else
                 npm install
             fi
@@ -156,7 +159,11 @@ update_repo() {
         if [ -f "tsconfig.json" ] && [ -f "package.json" ]; then
             if grep -q '"build"' package.json; then
                 print_status "Rebuilding $repo_name..."
-                npm run build || true
+                if npm run build; then
+                    print_success "Build succeeded for $repo_name"
+                else
+                    print_error "Build failed for $repo_name"
+                fi
             fi
         fi
         
@@ -294,8 +301,9 @@ main() {
     
     # Check for updates
     if check_all_repos; then
+        # Updates are available
         if [ "$check_only" = true ]; then
-            exit 0
+            exit 0  # Exit with success when updates are available
         fi
         
         # Prompt for update
@@ -307,6 +315,11 @@ main() {
             else
                 print_warning "Skipping updates"
             fi
+        fi
+    else
+        # No updates available
+        if [ "$check_only" = true ]; then
+            exit 1  # Exit with failure when no updates are available
         fi
     fi
     
