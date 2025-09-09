@@ -3,7 +3,9 @@
 # Create a simple app icon using built-in tools
 # This creates a basic icon with "LL" text
 
-ICON_DIR="/Users/bernard/src/lacylights/lacylights/LacyLights.app/Contents/Resources"
+# Get the directory where this script is located and construct the app icon path
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ICON_DIR="$SCRIPT_DIR/LacyLights.app/Contents/Resources"
 TEMP_DIR="/tmp/lacylights_icon"
 
 mkdir -p "$ICON_DIR" "$TEMP_DIR"
