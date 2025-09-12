@@ -161,6 +161,214 @@ if [ -f "update-repos.sh" ]; then
     echo ""
 fi
 
+# Function to get interface type (WiFi, Ethernet, etc.)
+get_interface_type() {
+    local iface="$1"
+    local hardware_info
+    
+    # Get hardware port information
+    hardware_info=$(networksetup -listallhardwareports | grep -B2 "Device: $iface" | head -3)
+    
+    if echo "$hardware_info" | grep -qi "wi-fi\|wifi\|wireless"; then
+        echo "WiFi"
+    elif echo "$hardware_info" | grep -qi "usb.*lan\|usb.*ethernet\|usb.*100"; then
+        echo "USB Ethernet"
+    elif echo "$hardware_info" | grep -qi "thunderbolt"; then
+        echo "Thunderbolt"
+    elif echo "$hardware_info" | grep -qi "bridge"; then
+        echo "Bridge"
+    elif echo "$hardware_info" | grep -qi "ethernet\|lan\|wired"; then
+        echo "Ethernet"
+    elif echo "$hardware_info" | grep -qi "usb"; then
+        echo "USB"
+    else
+        # Fallback: check interface name patterns
+        case "$iface" in
+            en0) echo "WiFi" ;;  # en0 is typically WiFi on macOS
+            en[1-9]*) 
+                echo "Ethernet"
+                ;;
+            *) echo "Unknown" ;;
+        esac
+    fi
+}
+
+# Function to get network interfaces
+get_network_interfaces() {
+    local ethernet_interfaces=()
+    local ethernet_descriptions=()
+    local ethernet_broadcasts=()
+    local ethernet_local_ips=()
+    
+    local wifi_interfaces=()
+    local wifi_descriptions=()
+    local wifi_broadcasts=()
+    local wifi_local_ips=()
+    
+    local other_interfaces=()
+    local other_descriptions=()
+    local other_broadcasts=()
+    local other_local_ips=()
+    
+    # Get network interfaces using a simpler approach
+    # Get all interface names
+    for iface in $(ifconfig -l); do
+        # Skip loopback
+        if [[ "$iface" == "lo0" ]]; then
+            continue
+        fi
+        
+        # Get the inet line for this interface
+        inet_line=$(ifconfig "$iface" | grep "inet " | grep -v "127.0.0.1" | head -1)
+        
+        if [[ -n "$inet_line" ]]; then
+            # Extract IP address (field 2)
+            ip=$(echo "$inet_line" | awk '{print $2}')
+            
+            # Extract broadcast address if present
+            if echo "$inet_line" | grep -q "broadcast"; then
+                broadcast=$(echo "$inet_line" | sed -n 's/.*broadcast \([0-9.]*\).*/\1/p')
+            else
+                # Fallback: calculate broadcast for typical /24 network
+                broadcast="${ip%.*}.255"
+            fi
+            
+            if [[ -n "$ip" && "$ip" != "127.0.0.1" && -n "$broadcast" && "$broadcast" != "$ip" ]]; then
+                # Get interface type
+                iface_type=$(get_interface_type "$iface")
+                
+                # Add emoji for interface type
+                case "$iface_type" in
+                    "WiFi") type_icon="📶" ;;
+                    "Ethernet") type_icon="🌐" ;;
+                    "USB Ethernet"|"USB") type_icon="🔌" ;;
+                    "Thunderbolt") type_icon="⚡" ;;
+                    "Bridge") type_icon="🔗" ;;
+                    *) type_icon="📡" ;;
+                esac
+                
+                # Only add broadcast option (no unicast)
+                description="$type_icon $iface - $iface_type Broadcast ($broadcast)"
+                
+                # Sort by interface type
+                case "$iface_type" in
+                    "Ethernet"|"USB Ethernet"|"USB"|"Thunderbolt")
+                        ethernet_interfaces+=("$broadcast")
+                        ethernet_descriptions+=("$description")
+                        ethernet_broadcasts+=("$broadcast")
+                        ethernet_local_ips+=("$ip")
+                        ;;
+                    "WiFi")
+                        wifi_interfaces+=("$broadcast")
+                        wifi_descriptions+=("$description")
+                        wifi_broadcasts+=("$broadcast")
+                        wifi_local_ips+=("$ip")
+                        ;;
+                    *)
+                        other_interfaces+=("$broadcast")
+                        other_descriptions+=("$description")
+                        other_broadcasts+=("$broadcast")
+                        other_local_ips+=("$ip")
+                        ;;
+                esac
+            fi
+        fi
+    done
+    
+    # Build final sorted arrays: ethernet, wifi, other, localhost, global broadcast
+    local interfaces=()
+    local descriptions=()
+    local broadcasts=()
+    local local_ips=()
+    
+    # Add ethernet interfaces first
+    for i in "${!ethernet_interfaces[@]}"; do
+        interfaces+=("${ethernet_interfaces[i]}")
+        descriptions+=("${ethernet_descriptions[i]}")
+        broadcasts+=("${ethernet_broadcasts[i]}")
+        local_ips+=("${ethernet_local_ips[i]}")
+    done
+    
+    # Add wifi interfaces
+    for i in "${!wifi_interfaces[@]}"; do
+        interfaces+=("${wifi_interfaces[i]}")
+        descriptions+=("${wifi_descriptions[i]}")
+        broadcasts+=("${wifi_broadcasts[i]}")
+        local_ips+=("${wifi_local_ips[i]}")
+    done
+    
+    # Add other interfaces
+    for i in "${!other_interfaces[@]}"; do
+        interfaces+=("${other_interfaces[i]}")
+        descriptions+=("${other_descriptions[i]}")
+        broadcasts+=("${other_broadcasts[i]}")
+        local_ips+=("${other_local_ips[i]}")
+    done
+    
+    # Add localhost option
+    interfaces+=("127.0.0.1")
+    descriptions+=("Localhost (for testing only)")
+    broadcasts+=("127.0.0.1")
+    local_ips+=("127.0.0.1")
+    
+    # Add global broadcast
+    interfaces+=("255.255.255.255")
+    descriptions+=("Global Broadcast (255.255.255.255)")
+    broadcasts+=("255.255.255.255")
+    local_ips+=("0.0.0.0")
+    
+    echo "Available Network Interface Options:"
+    echo "============================================================"
+    for i in "${!descriptions[@]}"; do
+        printf "[%d] %s\n" $((i+1)) "${descriptions[i]}"
+        if [ "${local_ips[i]}" != "${broadcasts[i]}" ]; then
+            printf "    Address: %s -> %s\n" "${local_ips[i]}" "${broadcasts[i]}"
+        else
+            printf "    Address: %s\n" "${local_ips[i]}"
+        fi
+    done
+    echo "============================================================"
+    echo ""
+    echo "📡 Select Art-Net broadcast destination:"
+    echo "   (This determines where DMX data will be sent)"
+    echo "   Press Enter for default (first option)"
+    echo ""
+    
+    local default_index=1
+    echo -n "Select option [1-${#interfaces[@]}] (default: $default_index): "
+    read -r interface_choice
+    
+    if [[ -z "$interface_choice" ]]; then
+        interface_choice=$default_index
+    fi
+    
+    # Validate choice
+    if [[ "$interface_choice" =~ ^[0-9]+$ ]] && [ "$interface_choice" -ge 1 ] && [ "$interface_choice" -le "${#interfaces[@]}" ]; then
+        local selected_index=$((interface_choice-1))
+        echo ""
+        echo -e "${GREEN}✅ Selected: ${descriptions[selected_index]}${NC}"
+        echo -e "${GREEN}   Broadcasting to: ${broadcasts[selected_index]}${NC}"
+        echo ""
+        
+        # Export the selected interface
+        export ARTNET_BROADCAST="${broadcasts[selected_index]}"
+    else
+        echo ""
+        echo -e "${YELLOW}⚠️  Invalid selection, using first option as default${NC}"
+        local selected_index=0
+        echo -e "${GREEN}✅ Selected: ${descriptions[selected_index]}${NC}"
+        echo -e "${GREEN}   Broadcasting to: ${broadcasts[selected_index]}${NC}"
+        export ARTNET_BROADCAST="${broadcasts[selected_index]}"
+        echo ""
+    fi
+}
+
+# Ask about network interface selection
+echo -e "${BLUE}Network Interface Selection${NC}"
+echo "Choose which network interface to use for Art-Net DMX broadcasting:"
+echo ""
+get_network_interfaces
+
 # Ask about MCP
 echo "Would you like to start the AI integration server (MCP)?"
 echo "Note: This requires an OpenAI API key configured in lacylights-mcp/.env"
@@ -171,11 +379,11 @@ read -r response
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     echo ""
     echo -e "${GREEN}Starting LacyLights with AI integration...${NC}"
-    ./start.sh --with-mcp
+    ARTNET_BROADCAST="$ARTNET_BROADCAST" ./start.sh --with-mcp
 else
     echo ""
     echo -e "${GREEN}Starting LacyLights...${NC}"
-    ./start.sh
+    ARTNET_BROADCAST="$ARTNET_BROADCAST" ./start.sh
 fi
 LAUNCHER_EOF
 
