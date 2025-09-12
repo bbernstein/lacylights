@@ -186,12 +186,7 @@ get_interface_type() {
         case "$iface" in
             en0) echo "WiFi" ;;  # en0 is typically WiFi on macOS
             en[1-9]*) 
-                # Check if it's a USB adapter by looking for specific patterns
-                if echo "$hardware_info" | grep -qi "usb\|10/100\|gigabit"; then
-                    echo "Ethernet"
-                else
-                    echo "Ethernet"
-                fi
+                echo "Ethernet"
                 ;;
             *) echo "Unknown" ;;
         esac
@@ -314,7 +309,11 @@ get_network_interfaces() {
     echo "============================================================"
     for i in "${!descriptions[@]}"; do
         printf "[%d] %s\n" $((i+1)) "${descriptions[i]}"
-        printf "    Address: %s -> %s\n" "${interfaces[i]}" "${broadcasts[i]}"
+        if [ "${interfaces[i]}" != "${broadcasts[i]}" ]; then
+            printf "    Address: %s -> %s\n" "${interfaces[i]}" "${broadcasts[i]}"
+        else
+            printf "    Address: %s\n" "${interfaces[i]}"
+        fi
     done
     echo "============================================================"
     echo ""
