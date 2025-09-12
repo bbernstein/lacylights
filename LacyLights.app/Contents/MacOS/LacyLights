@@ -198,14 +198,17 @@ get_network_interfaces() {
     local ethernet_interfaces=()
     local ethernet_descriptions=()
     local ethernet_broadcasts=()
+    local ethernet_local_ips=()
     
     local wifi_interfaces=()
     local wifi_descriptions=()
     local wifi_broadcasts=()
+    local wifi_local_ips=()
     
     local other_interfaces=()
     local other_descriptions=()
     local other_broadcasts=()
+    local other_local_ips=()
     
     # Get network interfaces using a simpler approach
     # Get all interface names
@@ -253,16 +256,19 @@ get_network_interfaces() {
                         ethernet_interfaces+=("$broadcast")
                         ethernet_descriptions+=("$description")
                         ethernet_broadcasts+=("$broadcast")
+                        ethernet_local_ips+=("$ip")
                         ;;
                     "WiFi")
                         wifi_interfaces+=("$broadcast")
                         wifi_descriptions+=("$description")
                         wifi_broadcasts+=("$broadcast")
+                        wifi_local_ips+=("$ip")
                         ;;
                     *)
                         other_interfaces+=("$broadcast")
                         other_descriptions+=("$description")
                         other_broadcasts+=("$broadcast")
+                        other_local_ips+=("$ip")
                         ;;
                 esac
             fi
@@ -273,12 +279,14 @@ get_network_interfaces() {
     local interfaces=()
     local descriptions=()
     local broadcasts=()
+    local local_ips=()
     
     # Add ethernet interfaces first
     for i in "${!ethernet_interfaces[@]}"; do
         interfaces+=("${ethernet_interfaces[i]}")
         descriptions+=("${ethernet_descriptions[i]}")
         broadcasts+=("${ethernet_broadcasts[i]}")
+        local_ips+=("${ethernet_local_ips[i]}")
     done
     
     # Add wifi interfaces
@@ -286,6 +294,7 @@ get_network_interfaces() {
         interfaces+=("${wifi_interfaces[i]}")
         descriptions+=("${wifi_descriptions[i]}")
         broadcasts+=("${wifi_broadcasts[i]}")
+        local_ips+=("${wifi_local_ips[i]}")
     done
     
     # Add other interfaces
@@ -293,26 +302,29 @@ get_network_interfaces() {
         interfaces+=("${other_interfaces[i]}")
         descriptions+=("${other_descriptions[i]}")
         broadcasts+=("${other_broadcasts[i]}")
+        local_ips+=("${other_local_ips[i]}")
     done
     
     # Add localhost option
     interfaces+=("127.0.0.1")
     descriptions+=("Localhost (for testing only)")
     broadcasts+=("127.0.0.1")
+    local_ips+=("127.0.0.1")
     
     # Add global broadcast
     interfaces+=("255.255.255.255")
     descriptions+=("Global Broadcast (255.255.255.255)")
     broadcasts+=("255.255.255.255")
+    local_ips+=("0.0.0.0")
     
     echo "Available Network Interface Options:"
     echo "============================================================"
     for i in "${!descriptions[@]}"; do
         printf "[%d] %s\n" $((i+1)) "${descriptions[i]}"
-        if [ "${interfaces[i]}" != "${broadcasts[i]}" ]; then
-            printf "    Address: %s -> %s\n" "${interfaces[i]}" "${broadcasts[i]}"
+        if [ "${local_ips[i]}" != "${broadcasts[i]}" ]; then
+            printf "    Address: %s -> %s\n" "${local_ips[i]}" "${broadcasts[i]}"
         else
-            printf "    Address: %s\n" "${interfaces[i]}"
+            printf "    Address: %s\n" "${local_ips[i]}"
         fi
     done
     echo "============================================================"
