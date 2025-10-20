@@ -29,6 +29,11 @@ print_warning() {
     echo -e "${YELLOW}!${NC} $1"
 }
 
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
 # Function to get the current installed version
 get_installed_version() {
     local repo_dir="$1"
@@ -43,12 +48,40 @@ get_installed_version() {
 get_latest_release_version() {
     local org="$1"
     local repo="$2"
+    local api_url="https://api.github.com/repos/$org/$repo/releases/latest"
 
-    local version=$(curl -s "https://api.github.com/repos/$org/$repo/releases/latest" | grep '"tag_name"' | cut -d '"' -f 4)
-    if [ -z "$version" ]; then
-        echo "unknown"
+    # Use jq for robust JSON parsing if available
+    if command_exists jq; then
+        local response_file=$(mktemp)
+        if [ -z "$response_file" ]; then
+            echo "unknown"
+            return
+        fi
+
+        local http_code=$(curl -s -w "%{http_code}" -o "$response_file" "$api_url")
+
+        if [ "$http_code" -ne 200 ]; then
+            rm -f "$response_file"
+            echo "unknown"
+            return
+        fi
+
+        local version=$(jq -r '.tag_name // empty' "$response_file")
+        rm -f "$response_file"
+
+        if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "unknown"
+        else
+            echo "$version"
+        fi
     else
-        echo "$version"
+        # Fallback to grep/cut if jq not available
+        local version=$(curl -s "$api_url" | grep '"tag_name"' | cut -d '"' -f 4)
+        if [ -z "$version" ]; then
+            echo "unknown"
+        else
+            echo "$version"
+        fi
     fi
 }
 
@@ -114,6 +147,11 @@ update_repo() {
 
     # Preserve .env files and other config
     local temp_backup=$(mktemp -d)
+    if [ -z "$temp_backup" ] || [ ! -d "$temp_backup" ]; then
+        print_error "Failed to create backup directory"
+        return 1
+    fi
+
     if [ -f "$repo_dir/.env" ]; then
         cp "$repo_dir/.env" "$temp_backup/.env"
     fi
@@ -123,12 +161,33 @@ update_repo() {
 
     # Create temporary directory for download
     local temp_dir=$(mktemp -d)
+    if [ -z "$temp_dir" ] || [ ! -d "$temp_dir" ]; then
+        print_error "Failed to create temporary directory"
+        rm -rf "$temp_backup"
+        return 1
+    fi
+
     local archive_file="$temp_dir/${repo_name}.tar.gz"
 
     # Download the release archive
     print_status "Downloading $repo_name $latest_version..."
-    local tarball_url=$(curl -s "https://api.github.com/repos/$org/$repo_name/releases/latest" | grep "tarball_url" | cut -d '"' -f 4)
-    if [ -z "$tarball_url" ]; then
+    local api_url="https://api.github.com/repos/$org/$repo_name/releases/latest"
+    local tarball_url=""
+
+    if command_exists jq; then
+        local response_file=$(mktemp)
+        if [ -n "$response_file" ]; then
+            local http_code=$(curl -s -w "%{http_code}" -o "$response_file" "$api_url")
+            if [ "$http_code" -eq 200 ]; then
+                tarball_url=$(jq -r '.tarball_url // empty' "$response_file")
+            fi
+            rm -f "$response_file"
+        fi
+    else
+        tarball_url=$(curl -s "$api_url" | grep '"tarball_url"' | cut -d '"' -f 4)
+    fi
+
+    if [ -z "$tarball_url" ] || [ "$tarball_url" = "null" ]; then
         print_error "Could not find release tarball URL"
         rm -rf "$temp_dir" "$temp_backup"
         return 1
@@ -150,6 +209,13 @@ update_repo() {
     }
 
     # Remove old directory and replace with new
+    # Validate path before deletion to prevent accidents
+    if [ -z "$repo_dir" ] || [ "$repo_dir" = "/" ] || [ "$repo_dir" = "." ] || [[ "$repo_dir" =~ \.\. ]]; then
+        print_error "Invalid repository directory path: $repo_dir"
+        rm -rf "$temp_dir" "$temp_backup"
+        return 1
+    fi
+
     rm -rf "$repo_dir"
     mv "$temp_dir/extract" "$repo_dir" || {
         print_error "Failed to move extracted files"

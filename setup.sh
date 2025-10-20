@@ -43,6 +43,52 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to get tarball URL from GitHub release with error handling
+get_release_tarball_url() {
+    local org="$1"
+    local repo="$2"
+    local api_url="https://api.github.com/repos/$org/$repo/releases/latest"
+
+    # Check if jq is available for robust JSON parsing
+    if command_exists jq; then
+        local response_file=$(mktemp)
+        if [ -z "$response_file" ]; then
+            print_error "Failed to create temporary file"
+            echo ""
+            return 1
+        fi
+
+        local http_code=$(curl -s -w "%{http_code}" -o "$response_file" "$api_url")
+
+        if [ "$http_code" -ne 200 ]; then
+            print_warning "GitHub API returned HTTP $http_code for $org/$repo"
+            rm -f "$response_file"
+            echo ""
+            return 1
+        fi
+
+        local tarball_url=$(jq -r '.tarball_url // empty' "$response_file")
+        rm -f "$response_file"
+
+        if [ -z "$tarball_url" ] || [ "$tarball_url" = "null" ]; then
+            echo ""
+            return 1
+        fi
+
+        echo "$tarball_url"
+        return 0
+    else
+        # Fallback to grep/cut if jq not available
+        local tarball_url=$(curl -s "$api_url" | grep '"tarball_url"' | cut -d '"' -f 4)
+        if [ -z "$tarball_url" ]; then
+            echo ""
+            return 1
+        fi
+        echo "$tarball_url"
+        return 0
+    fi
+}
+
 # Function to check if lacylights-node directory exists and cd into it
 lacylights_node_exists() {
     if [ -d "lacylights-node" ]; then
@@ -139,7 +185,13 @@ setup_repo() {
 
     # Create temporary directory for download
     local temp_dir=$(mktemp -d)
+    if [ -z "$temp_dir" ] || [ ! -d "$temp_dir" ]; then
+        print_error "Failed to create temporary directory for $repo"
+        return 1
+    fi
+
     local archive_file="$temp_dir/${repo}.tar.gz"
+    local tarball_url=""
 
     # Try to download using gh CLI first (preferred)
     if command_exists gh; then
@@ -147,44 +199,24 @@ setup_repo() {
         if gh release download --repo "$org/$repo" --pattern "*.tar.gz" --dir "$temp_dir" 2>/dev/null; then
             # Find the downloaded archive
             archive_file=$(find "$temp_dir" -name "*.tar.gz" | head -1)
-            if [ -z "$archive_file" ]; then
-                print_warning "No tarball found in release, trying alternative download..."
-                # Try downloading the source archive
-                if curl -sL "https://github.com/$org/$repo/releases/latest/download/source.tar.gz" -o "$archive_file" 2>/dev/null; then
-                    print_success "Downloaded source archive"
-                else
-                    # Fall back to GitHub API to get the source tarball
-                    print_status "Downloading source tarball from GitHub..."
-                    local tarball_url=$(curl -s "https://api.github.com/repos/$org/$repo/releases/latest" | grep "tarball_url" | cut -d '"' -f 4)
-                    if [ -z "$tarball_url" ]; then
-                        print_error "Could not find release for $repo in $org organization"
-                        rm -rf "$temp_dir"
-                        return 1
-                    fi
-                    curl -sL "$tarball_url" -o "$archive_file"
-                fi
-            fi
-        else
-            print_warning "gh release download failed, falling back to API..."
-            # Fall back to API approach
-            local tarball_url=$(curl -s "https://api.github.com/repos/$org/$repo/releases/latest" | grep "tarball_url" | cut -d '"' -f 4)
-            if [ -z "$tarball_url" ]; then
-                print_error "Could not find release for $repo in $org organization"
-                rm -rf "$temp_dir"
-                return 1
-            fi
-            curl -sL "$tarball_url" -o "$archive_file"
         fi
-    else
-        # Use curl + GitHub API
+    fi
+
+    # If gh CLI didn't work or didn't find archive, try GitHub API
+    if [ -z "$archive_file" ] || [ ! -f "$archive_file" ]; then
         print_status "Downloading using GitHub API..."
-        local tarball_url=$(curl -s "https://api.github.com/repos/$org/$repo/releases/latest" | grep "tarball_url" | cut -d '"' -f 4)
+        tarball_url=$(get_release_tarball_url "$org" "$repo")
         if [ -z "$tarball_url" ]; then
             print_error "Could not find release for $repo in $org organization"
             rm -rf "$temp_dir"
             return 1
         fi
-        curl -sL "$tarball_url" -o "$archive_file"
+
+        curl -sL "$tarball_url" -o "$archive_file" || {
+            print_error "Failed to download from $tarball_url"
+            rm -rf "$temp_dir"
+            return 1
+        }
     fi
 
     # Check if download succeeded
@@ -211,9 +243,19 @@ setup_repo() {
     }
 
     # Write version file
-    local version=$(curl -s "https://api.github.com/repos/$org/$repo/releases/latest" | grep '"tag_name"' | cut -d '"' -f 4)
-    if [ ! -z "$version" ]; then
+    local api_url="https://api.github.com/repos/$org/$repo/releases/latest"
+    local version=""
+
+    if command_exists jq; then
+        version=$(curl -s "$api_url" | jq -r '.tag_name // empty')
+    else
+        version=$(curl -s "$api_url" | grep '"tag_name"' | cut -d '"' -f 4)
+    fi
+
+    if [ -n "$version" ] && [ "$version" != "null" ]; then
         echo "$version" > "$repo/.lacylights-version"
+    else
+        print_warning "Could not determine version for $repo"
     fi
 
     # Clean up
@@ -261,7 +303,8 @@ setup_environment() {
             cp "lacylights-node/.env.example" "lacylights-node/.env"
             print_success "Created lacylights-node/.env from example"
         else
-            # Fallback: create minimal .env with SQLite (should not normally be needed)
+            # Fallback: create minimal .env with SQLite
+            # This is used when .env.example is missing or corrupted
             cat > "lacylights-node/.env" << EOF
 # Database (SQLite)
 DATABASE_URL="file:./dev.db"
