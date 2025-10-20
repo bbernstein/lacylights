@@ -34,14 +34,4 @@ for port in 3000 4000; do
     fi
 done
 
-# Stop Docker containers
-if [ -d "lacylights-node" ]; then
-    cd lacylights-node
-    if [ -f "docker-compose.yml" ]; then
-        print_status "Stopping Docker containers..."
-        docker-compose down 2>/dev/null || true
-    fi
-    cd ..
-fi
-
 print_success "All services stopped"

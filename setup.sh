@@ -110,53 +110,7 @@ check_requirements() {
         print_error "Git is not installed"
         missing_requirements=1
     fi
-    
-    # Check Docker
-    if command_exists docker; then
-        DOCKER_VERSION=$(docker --version)
-        print_success "Docker installed: $DOCKER_VERSION"
-        
-        # Check if Docker is running
-        if ! docker info >/dev/null 2>&1; then
-            print_warning "Docker is installed but not running."
-            
-            # On macOS, try to start Docker Desktop
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-                print_status "Attempting to start Docker Desktop..."
-                open -a Docker 2>/dev/null || true
-                
-                # Wait for Docker to start
-                print_status "Waiting for Docker to start (up to 60 seconds)..."
-                local docker_started=false
-                for i in {1..60}; do
-                    if docker info >/dev/null 2>&1; then
-                        docker_started=true
-                        break
-                    fi
-                    printf "."
-                    sleep 1
-                done
-                echo ""
-                
-                if [ "$docker_started" = true ]; then
-                    print_success "Docker is now running"
-                else
-                    print_error "Docker failed to start. Please start Docker Desktop manually and run setup again."
-                    missing_requirements=1
-                fi
-            else
-                print_warning "Please start Docker and run setup again."
-                missing_requirements=1
-            fi
-        else
-            print_success "Docker is running"
-        fi
-    else
-        print_error "Docker is not installed. You'll need it for the database."
-        print_warning "Download Docker Desktop from: https://www.docker.com/products/docker-desktop"
-        missing_requirements=1
-    fi
-    
+
     if [ $missing_requirements -eq 1 ]; then
         print_error "Please install missing requirements before continuing."
         exit 1
@@ -450,53 +404,6 @@ check_and_import_fixtures() {
     echo ""
 }
 
-# Function to start database containers
-start_database_containers() {
-    print_status "Starting database containers..."
-    
-    if lacylights_node_exists; then
-        (
-            cd "lacylights-node"
-            
-            # Check if docker-compose.yml exists
-            if [ -f "docker-compose.yml" ]; then
-                print_status "Starting PostgreSQL and Redis containers..."
-                docker-compose up -d postgres redis >/dev/null 2>&1 || {
-                    print_warning "Could not start database containers"
-                    # Note: Using 'exit 1' here is correct - it exits the subshell with error status
-                    exit 1
-                }
-                
-                # Wait for PostgreSQL to be ready
-                print_status "Waiting for PostgreSQL to be ready..."
-                local db_ready=false
-                for i in {1..30}; do
-                    if docker-compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
-                        db_ready=true
-                        break
-                    fi
-                    printf "."
-                    sleep 1
-                done
-                echo ""
-                
-                if [ "$db_ready" = true ]; then
-                    print_success "Database containers are running"
-                else
-                    print_warning "PostgreSQL is taking longer than expected to start"
-                fi
-            fi
-        )
-        
-        # Check if subshell failed (exit 1 in subshell sets $? to 1)
-        if [ $? -ne 0 ]; then
-            return 1
-        fi
-    fi
-    
-    echo ""
-}
-
 # Main setup flow
 main() {
     echo "LacyLights Platform Setup"
@@ -553,12 +460,7 @@ main() {
     
     # Setup environment files
     setup_environment
-    
-    # Start database containers if Docker is running
-    if command_exists docker && docker info >/dev/null 2>&1; then
-        start_database_containers
-    fi
-    
+
     # Setup database
     setup_database
     

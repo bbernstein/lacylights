@@ -13,8 +13,7 @@ A professional stage lighting control system built with Node.js, GraphQL, and Ty
 - Scene and cue list management with preview capabilities
 - Fixture library with built-in and custom fixture definitions
 - Multi-user collaboration with role-based permissions
-- PostgreSQL database with Prisma ORM
-- Docker support for easy deployment
+- SQLite database with Prisma ORM for lightweight, portable storage
 
 **Repository**: [lacylights-node](https://github.com/bbernstein/lacylights-node)
 
@@ -151,10 +150,7 @@ To run the complete LacyLights system manually:
    cd lacylights-node
    npm install
 
-   # Start PostgreSQL and Redis with Docker (recommended)
-   npm run docker:db
-
-   # Set up the database
+   # Set up the database (SQLite - no Docker required)
    npm run db:generate
    npm run db:migrate
 

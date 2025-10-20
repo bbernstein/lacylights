@@ -41,7 +41,7 @@ command_exists() {
 # Function to cleanup on exit
 cleanup() {
     print_status "Shutting down services..."
-    
+
     # Kill all child processes
     for pid in "${PIDS[@]}"; do
         if kill -0 "$pid" 2>/dev/null; then
@@ -49,107 +49,72 @@ cleanup() {
             kill "$pid" 2>/dev/null || true
         fi
     done
-    
-    # Stop Docker containers
-    if [ -d "lacylights-node" ]; then
-        cd lacylights-node
-        if [ -f "docker-compose.yml" ]; then
-            docker-compose down 2>/dev/null || true
-        fi
-        cd ..
-    fi
-    
+
     print_success "All services stopped"
 }
 
 # Set up trap for cleanup
 trap cleanup EXIT INT TERM
 
-# Function to check if Docker is running
-check_docker() {
-    print_status "Checking Docker..."
-    
-    if ! command_exists docker; then
-        print_error "Docker is not installed"
-        print_warning "Please install Docker Desktop from: https://www.docker.com/products/docker-desktop"
-        exit 1
-    fi
-    
-    if ! docker info >/dev/null 2>&1; then
-        print_error "Docker is not running"
-        print_warning "Please start Docker Desktop and try again"
-        
-        # On macOS, try to open Docker Desktop
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            print_status "Attempting to start Docker Desktop..."
-            open -a Docker || true
-            
-            # Wait for Docker to start
-            print_status "Waiting for Docker to start (up to 60 seconds)..."
-            for i in {1..60}; do
-                if docker info >/dev/null 2>&1; then
-                    print_success "Docker is now running"
-                    return 0
-                fi
-                sleep 1
-            done
-            
-            print_error "Docker failed to start"
-            exit 1
-        else
-            exit 1
-        fi
-    fi
-    
-    print_success "Docker is running"
-}
+# Function to check and install dependencies if needed
+ensure_dependencies() {
+    local repo_name="$1"
+    local repo_dir="$2"
 
-# Function to start database containers
-start_database() {
-    print_status "Starting database containers..."
-    
-    if [ -d "lacylights-node" ]; then
-        cd lacylights-node
-        
-        # Check if docker-compose.yml exists
-        if [ -f "docker-compose.yml" ]; then
-            print_status "Starting PostgreSQL and Redis..."
-            docker-compose up -d postgres redis || {
-                print_error "Failed to start database containers"
-                cd ..
-                return 1
-            }
-            
-            # Wait for PostgreSQL to be ready
-            print_status "Waiting for PostgreSQL to be ready..."
-            for i in {1..30}; do
-                if docker-compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
-                    print_success "PostgreSQL is ready"
-                    break
-                fi
-                sleep 1
-            done
-        else
-            print_warning "No docker-compose.yml found, skipping database setup"
-        fi
-        
-        cd ..
-    else
-        print_error "lacylights-node directory not found"
+    if [ ! -d "$repo_dir" ]; then
         return 1
     fi
+
+    if [ ! -f "$repo_dir/package.json" ]; then
+        return 0  # No package.json, skip
+    fi
+
+    # Check if node_modules exists and has content
+    if [ ! -d "$repo_dir/node_modules" ] || [ -z "$(ls -A "$repo_dir/node_modules" 2>/dev/null)" ]; then
+        print_status "Installing dependencies for $repo_name (node_modules missing)..."
+        (cd "$repo_dir" && npm install) || {
+            print_error "Failed to install dependencies for $repo_name"
+            return 1
+        }
+        print_success "Dependencies installed for $repo_name"
+        return 0
+    fi
+
+    # Quick check: verify package-lock.json is in sync with node_modules
+    # This catches cases where dependencies were updated but not installed
+    if [ -f "$repo_dir/package-lock.json" ]; then
+        if [ "$repo_dir/package-lock.json" -nt "$repo_dir/node_modules/.package-lock.json" ] 2>/dev/null; then
+            print_status "Updating dependencies for $repo_name (package-lock.json changed)..."
+            (cd "$repo_dir" && npm ci) || {
+                print_warning "npm ci failed, falling back to npm install..."
+                (cd "$repo_dir" && npm install) || {
+                    print_error "Failed to install dependencies for $repo_name"
+                    return 1
+                }
+            }
+            print_success "Dependencies updated for $repo_name"
+        fi
+    fi
+
+    return 0
 }
 
 # Function to start the backend
 start_backend() {
     print_status "Starting backend server..."
-    
+
     if [ -d "lacylights-node" ]; then
+        # Ensure dependencies are installed
+        ensure_dependencies "lacylights-node" "lacylights-node" || {
+            print_error "Cannot start backend without dependencies"
+            return 1
+        }
+
         cd lacylights-node
-        
+
         # Create logs directory if it doesn't exist
         mkdir -p "../$LOGS_DIR"
-        
+
         # Start the backend
         print_status "Starting lacylights-node on port 4000..."
         npm run dev > "../$LOGS_DIR/backend.log" 2>&1 &
@@ -179,13 +144,19 @@ start_backend() {
 # Function to start the frontend
 start_frontend() {
     print_status "Starting frontend..."
-    
+
     if [ -d "lacylights-fe" ]; then
+        # Ensure dependencies are installed
+        ensure_dependencies "lacylights-fe" "lacylights-fe" || {
+            print_error "Cannot start frontend without dependencies"
+            return 1
+        }
+
         cd lacylights-fe
-        
+
         # Create logs directory if it doesn't exist
         mkdir -p "../$LOGS_DIR"
-        
+
         # Start the frontend
         print_status "Starting lacylights-fe on port 3000..."
         npm run dev > "../$LOGS_DIR/frontend.log" 2>&1 &
@@ -214,16 +185,22 @@ start_frontend() {
 start_mcp() {
     if [ "$1" == "--with-mcp" ] || [ "$1" == "-m" ]; then
         print_status "Starting MCP server..."
-        
+
         if [ -d "lacylights-mcp" ]; then
+            # Ensure dependencies are installed
+            ensure_dependencies "lacylights-mcp" "lacylights-mcp" || {
+                print_error "Cannot start MCP server without dependencies"
+                return 1
+            }
+
             cd lacylights-mcp
-            
+
             # Check if OpenAI API key is set
             if [ -f ".env" ] && grep -q "OPENAI_API_KEY=your-api-key-here" ".env"; then
                 print_warning "OpenAI API key not configured in lacylights-mcp/.env"
                 print_warning "MCP server will start but AI features won't work"
             fi
-            
+
             # Build if needed
             if [ ! -d "dist" ]; then
                 print_status "Building MCP server..."
@@ -294,33 +271,25 @@ main() {
     echo "LacyLights Platform Launcher"
     echo "============================"
     echo ""
-    
-    # Check Docker
-    check_docker
-    echo ""
-    
-    # Start database
-    start_database
-    echo ""
-    
+
     # Start backend
     start_backend
     echo ""
-    
+
     # Start frontend
     start_frontend
     echo ""
-    
+
     # Start MCP if requested
     start_mcp "$1"
     echo ""
-    
+
     # Open browser
     open_browser
-    
+
     # Show logs info
     show_logs "$1"
-    
+
     # Wait for interrupt
     wait
 }

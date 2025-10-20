@@ -5,7 +5,6 @@ The `LacyLights.app` bundle provides a convenient double-click launcher for the 
 ## Features
 
 - **First-run setup wizard** - Automatically guides through repository setup on first launch
-- **Docker management** - Checks for Docker and attempts to start it if needed
 - **API key configuration** - Prompts for OpenAI API key configuration when needed
 - **Terminal integration** - Launches services in Terminal for full visibility
 - **Process management** - Handles all three services with proper cleanup
@@ -54,5 +53,4 @@ You can customize the app by:
 
 - **App won't open**: Right-click and select "Open" to bypass Gatekeeper on first run
 - **Setup fails**: Check the Terminal window for error messages
-- **Docker not starting**: Install Docker Desktop from https://docker.com
 - **Services won't start**: Run `./setup.sh` manually in Terminal from the lacylights directory
