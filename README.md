@@ -82,9 +82,40 @@ An MCP (Model Context Protocol) server that provides AI-powered theatrical light
 
 ## Getting Started
 
-### Quick Start with Scripts
+### Raspberry Pi Deployment (Recommended for Production)
 
-The easiest way to get started is using our automated scripts:
+**LacyLights is designed to run as a turnkey hardware product on Raspberry Pi.**
+
+For complete Raspberry Pi deployment instructions, see:
+📖 **[Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-node/blob/main/deploy/DEPLOYMENT.md)**
+
+Quick deployment steps:
+```bash
+# 1. Copy deployment script to Raspberry Pi
+scp lacylights-node/deploy/deploy.sh pi@lacylights.local:/tmp/
+
+# 2. SSH into Raspberry Pi
+ssh pi@lacylights.local
+
+# 3. Run deployment (installs everything automatically)
+sudo bash /tmp/deploy.sh
+```
+
+After deployment, access LacyLights at `http://lacylights.local`
+
+**Features:**
+- Automated installation and configuration
+- Static export frontend with nginx
+- SQLite database (no Docker required)
+- Systemd service management
+- Art-Net DMX output support
+- ~350MB RAM footprint
+
+### Development Setup (macOS/Linux)
+
+#### Quick Start with Scripts
+
+The easiest way to get started for development is using our automated scripts:
 
 ```bash
 # Initial setup - clones all repositories and installs dependencies
@@ -103,7 +134,7 @@ The easiest way to get started is using our automated scripts:
 ./start.sh --with-mcp
 ```
 
-### macOS App
+#### macOS App
 
 On macOS, you can use the LacyLights.app which provides:
 - Automatic update checking on launch
@@ -111,7 +142,7 @@ On macOS, you can use the LacyLights.app which provides:
 - Integrated terminal management
 - Easy setup wizard for first-time users
 
-### Manual Setup
+#### Manual Development Setup
 
 To run the complete LacyLights system manually:
 
