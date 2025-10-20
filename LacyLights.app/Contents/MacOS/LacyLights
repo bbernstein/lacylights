@@ -363,11 +363,49 @@ get_network_interfaces() {
     fi
 }
 
-# Ask about network interface selection
-echo -e "${BLUE}Network Interface Selection${NC}"
-echo "Choose which network interface to use for Art-Net DMX broadcasting:"
-echo ""
-get_network_interfaces
+# Check if ARTNET_BROADCAST is already configured
+NEED_SELECTION=true
+if [ -f "lacylights-node/.env" ] && grep -q "^ARTNET_BROADCAST=" "lacylights-node/.env"; then
+    # Extract the configured value
+    SAVED_BROADCAST=$(grep "^ARTNET_BROADCAST=" "lacylights-node/.env" | cut -d'=' -f2 | tr -d '"')
+    echo -e "${GREEN}✅ Saved Art-Net broadcast address: ${SAVED_BROADCAST}${NC}"
+    echo ""
+    echo -n "Use this address? [Y/n] "
+    read -r use_saved
+
+    if [[ ! "$use_saved" =~ ^([nN][oO]|[nN])$ ]]; then
+        ARTNET_BROADCAST="$SAVED_BROADCAST"
+        NEED_SELECTION=false
+        echo ""
+    else
+        echo ""
+    fi
+fi
+
+if [ "$NEED_SELECTION" = true ]; then
+    # Ask about network interface selection
+    echo -e "${BLUE}Network Interface Selection${NC}"
+    echo "Choose which network interface to use for Art-Net DMX broadcasting:"
+    echo ""
+    get_network_interfaces
+
+    # Save the selection to .env for next time
+    if [ -n "$ARTNET_BROADCAST" ] && [ -f "lacylights-node/.env" ]; then
+        # Check if ARTNET_BROADCAST line already exists
+        if grep -q "^#.*ARTNET_BROADCAST=" "lacylights-node/.env" || grep -q "^ARTNET_BROADCAST=" "lacylights-node/.env"; then
+            # Replace the existing line (commented or not)
+            sed -i '' "s|^#.*ARTNET_BROADCAST=.*|ARTNET_BROADCAST=\"$ARTNET_BROADCAST\"|" "lacylights-node/.env"
+            sed -i '' "s|^ARTNET_BROADCAST=.*|ARTNET_BROADCAST=\"$ARTNET_BROADCAST\"|" "lacylights-node/.env"
+        else
+            # Add new line after the Art-Net Configuration section
+            sed -i '' "/# Art-Net Configuration/a\\
+ARTNET_BROADCAST=\"$ARTNET_BROADCAST\"
+" "lacylights-node/.env"
+        fi
+        echo -e "${GREEN}✅ Saved selection to lacylights-node/.env${NC}"
+        echo ""
+    fi
+fi
 
 # Ask about MCP
 echo "Would you like to start the AI integration server (MCP)?"
