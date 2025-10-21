@@ -269,6 +269,18 @@ update_repo() {
         fi
     fi
 
+    # Run database migrations for lacylights-node
+    if [ "$repo_name" = "lacylights-node" ] && [ -f "$repo_dir/prisma/schema.prisma" ]; then
+        print_status "Running database migrations for $repo_name..."
+        pushd "$repo_dir" >/dev/null
+        if npx prisma migrate deploy; then
+            print_success "Database migrations completed for $repo_name"
+        else
+            print_warning "Database migrations failed for $repo_name - you may need to run manually"
+        fi
+        popd >/dev/null
+    fi
+
     return 0
 }
 
