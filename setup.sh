@@ -43,6 +43,52 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to get tarball URL from GitHub release with error handling
+get_release_tarball_url() {
+    local org="$1"
+    local repo="$2"
+    local api_url="https://api.github.com/repos/$org/$repo/releases/latest"
+
+    # Check if jq is available for robust JSON parsing
+    if command_exists jq; then
+        local response_file=$(mktemp)
+        if [ -z "$response_file" ]; then
+            print_error "Failed to create temporary file"
+            echo ""
+            return 1
+        fi
+
+        local http_code=$(curl -s -w "%{http_code}" -o "$response_file" "$api_url")
+
+        if [ "$http_code" -ne 200 ]; then
+            print_warning "GitHub API returned HTTP $http_code for $org/$repo"
+            rm -f "$response_file"
+            echo ""
+            return 1
+        fi
+
+        local tarball_url=$(jq -r '.tarball_url // empty' "$response_file")
+        rm -f "$response_file"
+
+        if [ -z "$tarball_url" ] || [ "$tarball_url" = "null" ]; then
+            echo ""
+            return 1
+        fi
+
+        echo "$tarball_url"
+        return 0
+    else
+        # Fallback to grep/cut if jq not available
+        local tarball_url=$(curl -s "$api_url" | grep '"tarball_url"' | cut -d '"' -f 4)
+        if [ -z "$tarball_url" ]; then
+            echo ""
+            return 1
+        fi
+        echo "$tarball_url"
+        return 0
+    fi
+}
+
 # Function to check if lacylights-node directory exists and cd into it
 lacylights_node_exists() {
     if [ -d "lacylights-node" ]; then
@@ -119,64 +165,102 @@ check_requirements() {
     echo ""
 }
 
-# Function to clone or update a repository
+# Function to download and extract a release archive
 setup_repo() {
     local repo=$1
     print_status "Setting up $repo..."
-    
+
     if [ -d "$repo" ]; then
-        print_status "Repository exists, updating..."
-        cd "$repo"
-        
-        # Check if it's a git repository
-        if [ -d ".git" ]; then
-            # Stash any local changes
-            if ! git diff --quiet || ! git diff --cached --quiet; then
-                print_warning "Stashing local changes in $repo..."
-                git stash push -m "Stashed by setup script $(date)"
-            fi
-            
-            # Pull latest changes
-            print_status "Pulling latest changes..."
-            git pull origin main || git pull origin master || {
-                print_error "Failed to pull changes. Please check the repository."
-                cd ..
-                return 1
-            }
-        else
-            print_error "$repo exists but is not a git repository"
-            cd ..
-            return 1
-        fi
-        
-        cd ..
-    else
-        print_status "Cloning $repo..."
-        
-        # If we have a GitHub org, try that first
-        if [ ! -z "$GITHUB_ORG" ]; then
-            if git clone "https://github.com/${GITHUB_ORG}/${repo}.git" 2>/dev/null; then
-                print_success "Cloned from https://github.com/${GITHUB_ORG}/${repo}.git"
-            else
-                print_warning "Could not clone from https://github.com/${GITHUB_ORG}/${repo}.git"
-                echo "Please enter the Git repository URL for $repo:"
-                read -r repo_url
-                git clone "$repo_url" "$repo" || {
-                    print_error "Failed to clone $repo"
-                    return 1
-                }
-            fi
-        else
-            # No GitHub org, ask for full URL
-            echo "Please enter the Git repository URL for $repo:"
-            read -r repo_url
-            git clone "$repo_url" "$repo" || {
-                print_error "Failed to clone $repo"
-                return 1
-            }
+        print_status "Repository directory exists, will update if newer release available..."
+        # Directory exists, we'll let update-repos.sh handle updates
+        print_success "$repo directory found"
+        echo ""
+        return 0
+    fi
+
+    print_status "Downloading latest release for $repo..."
+
+    # Default to bbernstein org if no org specified
+    local org="${GITHUB_ORG:-bbernstein}"
+
+    # Create temporary directory for download
+    local temp_dir=$(mktemp -d)
+    if [ -z "$temp_dir" ] || [ ! -d "$temp_dir" ]; then
+        print_error "Failed to create temporary directory for $repo"
+        return 1
+    fi
+
+    local archive_file="$temp_dir/${repo}.tar.gz"
+    local tarball_url=""
+
+    # Try to download using gh CLI first (preferred)
+    if command_exists gh; then
+        print_status "Downloading using gh CLI..."
+        if gh release download --repo "$org/$repo" --pattern "*.tar.gz" --dir "$temp_dir" 2>/dev/null; then
+            # Find the downloaded archive
+            archive_file=$(find "$temp_dir" -name "*.tar.gz" | head -1)
         fi
     fi
-    
+
+    # If gh CLI didn't work or didn't find archive, try GitHub API
+    if [ -z "$archive_file" ] || [ ! -f "$archive_file" ]; then
+        print_status "Downloading using GitHub API..."
+        tarball_url=$(get_release_tarball_url "$org" "$repo")
+        if [ -z "$tarball_url" ]; then
+            print_error "Could not find release for $repo in $org organization"
+            rm -rf "$temp_dir"
+            return 1
+        fi
+
+        curl -sL "$tarball_url" -o "$archive_file" || {
+            print_error "Failed to download from $tarball_url"
+            rm -rf "$temp_dir"
+            return 1
+        }
+    fi
+
+    # Check if download succeeded
+    if [ ! -f "$archive_file" ] || [ ! -s "$archive_file" ]; then
+        print_error "Failed to download release for $repo"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    # Extract archive
+    print_status "Extracting $repo..."
+    mkdir -p "$temp_dir/extract"
+    tar -xzf "$archive_file" -C "$temp_dir/extract" --strip-components=1 || {
+        print_error "Failed to extract archive for $repo"
+        rm -rf "$temp_dir"
+        return 1
+    }
+
+    # Move extracted content to final location
+    mv "$temp_dir/extract" "$repo" || {
+        print_error "Failed to move extracted files for $repo"
+        rm -rf "$temp_dir"
+        return 1
+    }
+
+    # Write version file
+    local api_url="https://api.github.com/repos/$org/$repo/releases/latest"
+    local version=""
+
+    if command_exists jq; then
+        version=$(curl -s "$api_url" | jq -r '.tag_name // empty')
+    else
+        version=$(curl -s "$api_url" | grep '"tag_name"' | cut -d '"' -f 4)
+    fi
+
+    if [ -n "$version" ] && [ "$version" != "null" ]; then
+        echo "$version" > "$repo/.lacylights-version"
+    else
+        print_warning "Could not determine version for $repo"
+    fi
+
+    # Clean up
+    rm -rf "$temp_dir"
+
     print_success "$repo is ready"
     echo ""
 }
@@ -219,19 +303,25 @@ setup_environment() {
             cp "lacylights-node/.env.example" "lacylights-node/.env"
             print_success "Created lacylights-node/.env from example"
         else
+            # Fallback: create minimal .env with SQLite
+            # This is used when .env.example is missing or corrupted
             cat > "lacylights-node/.env" << EOF
-# Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/lacylights"
+# Database (SQLite)
+DATABASE_URL="file:./dev.db"
 
-# Redis
-REDIS_URL="redis://localhost:6379"
-
-# Server
+# Server Configuration
 PORT=4000
 NODE_ENV=development
 
-# CORS
-CORS_ORIGIN="http://localhost:3000"
+# CORS Configuration
+CORS_ORIGIN=http://localhost:3000
+
+# DMX Configuration
+DMX_UNIVERSE_COUNT=4
+DMX_REFRESH_RATE=44
+
+# Session Configuration
+SESSION_SECRET=your-session-secret-here
 EOF
             print_success "Created default lacylights-node/.env"
         fi

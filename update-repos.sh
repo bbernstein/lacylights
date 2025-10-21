@@ -29,89 +29,98 @@ print_warning() {
     echo -e "${YELLOW}!${NC} $1"
 }
 
-# Function to check if repo has uncommitted changes
-has_uncommitted_changes() {
-    local repo_dir="$1"
-    if [ -d "$repo_dir/.git" ]; then
-        pushd "$repo_dir" >/dev/null
-        if ! git diff --quiet || ! git diff --cached --quiet; then
-            popd >/dev/null
-            return 0  # Has uncommitted changes
-        fi
-        popd >/dev/null
-    fi
-    return 1  # No uncommitted changes
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
 }
 
-# Function to check if repo has unpushed commits
-has_unpushed_commits() {
+# Function to get the current installed version
+get_installed_version() {
     local repo_dir="$1"
-    if [ -d "$repo_dir/.git" ]; then
-        pushd "$repo_dir" >/dev/null
-        local upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "")
-        if [[ -n "$upstream" ]]; then
-            local local_commit=$(git rev-parse HEAD)
-            local remote_commit=$(git rev-parse "$upstream" 2>/dev/null || echo "")
-            if [ "$local_commit" != "$remote_commit" ]; then
-                popd >/dev/null
-                return 0  # Has unpushed commits
-            fi
-        fi
-        popd >/dev/null
+    if [ -f "$repo_dir/.lacylights-version" ]; then
+        cat "$repo_dir/.lacylights-version"
+    else
+        echo "unknown"
     fi
-    return 1  # No unpushed commits
+}
+
+# Function to get the latest release version from GitHub
+get_latest_release_version() {
+    local org="$1"
+    local repo="$2"
+    local api_url="https://api.github.com/repos/$org/$repo/releases/latest"
+
+    # Use jq for robust JSON parsing if available
+    if command_exists jq; then
+        local response_file=$(mktemp)
+        if [ -z "$response_file" ]; then
+            echo "unknown"
+            return
+        fi
+
+        local http_code=$(curl -s -w "%{http_code}" -o "$response_file" "$api_url")
+
+        if [ "$http_code" -ne 200 ]; then
+            rm -f "$response_file"
+            echo "unknown"
+            return
+        fi
+
+        local version=$(jq -r '.tag_name // empty' "$response_file")
+        rm -f "$response_file"
+
+        if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "unknown"
+        else
+            echo "$version"
+        fi
+    else
+        # Fallback to grep/cut if jq not available
+        local version=$(curl -s "$api_url" | grep '"tag_name"' | cut -d '"' -f 4)
+        if [ -z "$version" ]; then
+            echo "unknown"
+        else
+            echo "$version"
+        fi
+    fi
 }
 
 # Function to check for updates in a repository
 check_repo_updates() {
     local repo_name="$1"
     local repo_dir="$2"
-    
+    local org="${3:-bbernstein}"
+
     print_status "Checking $repo_name for updates..."
-    
+
     if [ ! -d "$repo_dir" ]; then
         print_warning "$repo_name not found at $(pwd)/$repo_dir"
         return 1
     fi
-    
-    if [ ! -d "$repo_dir/.git" ]; then
-        print_warning "$repo_name is not a git repository (no .git directory found in $(pwd)/$repo_dir)"
+
+    # Get installed version
+    local installed_version=$(get_installed_version "$repo_dir")
+
+    # Get latest release version
+    local latest_version=$(get_latest_release_version "$org" "$repo_name")
+
+    if [ "$latest_version" = "unknown" ]; then
+        print_warning "Could not determine latest version for $repo_name"
         return 1
     fi
-    
-    pushd "$repo_dir" >/dev/null
-    
-    # Fetch latest changes from remote
-    git fetch origin >/dev/null 2>&1 || {
-        print_error "Failed to fetch updates for $repo_name"
-        popd >/dev/null
-        return 1
-    }
-    
-    # Get current branch
-    local current_branch=$(git rev-parse --abbrev-ref HEAD)
-    
-    # Check if there are updates available
-    local local_commit=$(git rev-parse HEAD)
-    local remote_commit=$(git rev-parse "origin/$current_branch" 2>/dev/null || echo "")
-    
-    if [[ -z "$remote_commit" ]]; then
-        print_warning "No remote branch origin/$current_branch found"
-        popd >/dev/null
+
+    if [ "$installed_version" = "unknown" ]; then
+        print_warning "$repo_name version unknown (no .lacylights-version file), considering it outdated"
+        return 2  # Updates available
+    fi
+
+    # Compare versions
+    if [ "$installed_version" = "$latest_version" ]; then
+        print_success "$repo_name is up to date ($installed_version)"
         return 0
     fi
-    
-    if [ "$local_commit" = "$remote_commit" ]; then
-        print_success "$repo_name is up to date"
-        popd >/dev/null
-        return 0
-    fi
-    
-    # Count commits behind
-    local commits_behind=$(git rev-list --count HEAD..origin/"$current_branch")
-    print_warning "$repo_name is $commits_behind commit(s) behind origin/$current_branch"
-    
-    popd >/dev/null
+
+    print_warning "$repo_name has an update available: $installed_version → $latest_version"
     return 2  # Updates available
 }
 
@@ -120,60 +129,147 @@ update_repo() {
     local repo_name="$1"
     local repo_dir="$2"
     local auto_update="$3"
-    
+    local org="${4:-bbernstein}"
+
     print_status "Updating $repo_name..."
-    
-    pushd "$repo_dir" >/dev/null
-    
-    # Get current branch
-    local current_branch=$(git rev-parse --abbrev-ref HEAD)
-    
-    # Check for uncommitted changes
-    if has_uncommitted_changes "."; then
-        print_error "$repo_name has uncommitted changes"
-        print_warning "Please commit or stash your changes before updating"
-        popd >/dev/null
+
+    if [ ! -d "$repo_dir" ]; then
+        print_error "$repo_name directory not found"
         return 1
     fi
-    
-    # Pull latest changes
-    print_status "Pulling latest changes for $repo_name..."
-    if git pull origin "$current_branch"; then
-        print_success "$repo_name updated successfully"
-        
-        # Install dependencies if package.json changed
-        if git diff HEAD~1 HEAD --name-only | grep -q "package.json"; then
-            print_status "Package.json changed, installing dependencies..."
-            if [ -f "package-lock.json" ]; then
-                if ! npm ci; then
-                    print_warning "npm ci failed in $repo_name, falling back to npm install. This may indicate a problem with your dependencies or lockfile."
-                    npm install
-                fi
-            else
+
+    # Get latest release version
+    local latest_version=$(get_latest_release_version "$org" "$repo_name")
+    if [ "$latest_version" = "unknown" ]; then
+        print_error "Could not determine latest version for $repo_name"
+        return 1
+    fi
+
+    # Preserve .env files and other config
+    local temp_backup=$(mktemp -d)
+    if [ -z "$temp_backup" ] || [ ! -d "$temp_backup" ]; then
+        print_error "Failed to create backup directory"
+        return 1
+    fi
+
+    if [ -f "$repo_dir/.env" ]; then
+        cp "$repo_dir/.env" "$temp_backup/.env"
+    fi
+    if [ -f "$repo_dir/.env.local" ]; then
+        cp "$repo_dir/.env.local" "$temp_backup/.env.local"
+    fi
+
+    # Create temporary directory for download
+    local temp_dir=$(mktemp -d)
+    if [ -z "$temp_dir" ] || [ ! -d "$temp_dir" ]; then
+        print_error "Failed to create temporary directory"
+        rm -rf "$temp_backup"
+        return 1
+    fi
+
+    local archive_file="$temp_dir/${repo_name}.tar.gz"
+
+    # Download the release archive
+    print_status "Downloading $repo_name $latest_version..."
+    local api_url="https://api.github.com/repos/$org/$repo_name/releases/latest"
+    local tarball_url=""
+
+    if command_exists jq; then
+        local response_file=$(mktemp)
+        if [ -n "$response_file" ]; then
+            local http_code=$(curl -s -w "%{http_code}" -o "$response_file" "$api_url")
+            if [ "$http_code" -eq 200 ]; then
+                tarball_url=$(jq -r '.tarball_url // empty' "$response_file")
+            fi
+            rm -f "$response_file"
+        fi
+    else
+        tarball_url=$(curl -s "$api_url" | grep '"tarball_url"' | cut -d '"' -f 4)
+    fi
+
+    if [ -z "$tarball_url" ] || [ "$tarball_url" = "null" ]; then
+        print_error "Could not find release tarball URL"
+        rm -rf "$temp_dir" "$temp_backup"
+        return 1
+    fi
+
+    curl -sL "$tarball_url" -o "$archive_file" || {
+        print_error "Failed to download $repo_name"
+        rm -rf "$temp_dir" "$temp_backup"
+        return 1
+    }
+
+    # Extract to temporary location
+    print_status "Extracting $repo_name..."
+    mkdir -p "$temp_dir/extract"
+    tar -xzf "$archive_file" -C "$temp_dir/extract" --strip-components=1 || {
+        print_error "Failed to extract archive"
+        rm -rf "$temp_dir" "$temp_backup"
+        return 1
+    }
+
+    # Remove old directory and replace with new
+    # Validate path before deletion to prevent accidents
+    if [ -z "$repo_dir" ] || [ "$repo_dir" = "/" ] || [ "$repo_dir" = "." ] || [[ "$repo_dir" =~ \.\. ]]; then
+        print_error "Invalid repository directory path: $repo_dir"
+        rm -rf "$temp_dir" "$temp_backup"
+        return 1
+    fi
+
+    rm -rf "$repo_dir"
+    mv "$temp_dir/extract" "$repo_dir" || {
+        print_error "Failed to move extracted files"
+        rm -rf "$temp_dir" "$temp_backup"
+        return 1
+    }
+
+    # Restore .env files
+    if [ -f "$temp_backup/.env" ]; then
+        cp "$temp_backup/.env" "$repo_dir/.env"
+    fi
+    if [ -f "$temp_backup/.env.local" ]; then
+        cp "$temp_backup/.env.local" "$repo_dir/.env.local"
+    fi
+
+    # Write version file
+    echo "$latest_version" > "$repo_dir/.lacylights-version"
+
+    # Clean up
+    rm -rf "$temp_dir" "$temp_backup"
+
+    print_success "$repo_name updated to $latest_version"
+
+    # Install dependencies
+    if [ -f "$repo_dir/package.json" ]; then
+        print_status "Installing dependencies for $repo_name..."
+        pushd "$repo_dir" >/dev/null
+        if [ -f "package-lock.json" ]; then
+            if ! npm ci; then
+                print_warning "npm ci failed, falling back to npm install..."
                 npm install
             fi
-            print_success "Dependencies updated"
+        else
+            npm install
         fi
-        
-        # Rebuild if necessary (for TypeScript projects)
-        if [ -f "tsconfig.json" ] && [ -f "package.json" ]; then
-            if grep -q '"build"' package.json; then
-                print_status "Rebuilding $repo_name..."
-                if npm run build; then
-                    print_success "Build succeeded for $repo_name"
-                else
-                    print_error "Build failed for $repo_name"
-                fi
-            fi
-        fi
-        
         popd >/dev/null
-        return 0
-    else
-        print_error "Failed to update $repo_name"
-        popd >/dev/null
-        return 1
+        print_success "Dependencies installed for $repo_name"
     fi
+
+    # Rebuild if necessary (for TypeScript projects)
+    if [ -f "$repo_dir/tsconfig.json" ] && [ -f "$repo_dir/package.json" ]; then
+        if grep -q '"build"' "$repo_dir/package.json"; then
+            print_status "Rebuilding $repo_name..."
+            pushd "$repo_dir" >/dev/null
+            if npm run build; then
+                print_success "Build succeeded for $repo_name"
+            else
+                print_error "Build failed for $repo_name"
+            fi
+            popd >/dev/null
+        fi
+    fi
+
+    return 0
 }
 
 # Function to check all repositories
