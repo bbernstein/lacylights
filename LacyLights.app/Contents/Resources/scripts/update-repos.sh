@@ -372,18 +372,7 @@ prompt_for_update() {
 main() {
     local auto_update=false
     local check_only=false
-    
-    # Get the directory where this script is located and ensure we're there
-    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    cd "$SCRIPT_DIR"
-    
-    # Verify we're in the lacylights directory
-    if [ ! -f "start.sh" ] || [ ! -f "setup.sh" ]; then
-        print_error "This script must be run from the lacylights directory"
-        print_error "Current directory: $(pwd)"
-        exit 1
-    fi
-    
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in

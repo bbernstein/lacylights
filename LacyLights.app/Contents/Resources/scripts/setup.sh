@@ -565,24 +565,16 @@ main() {
     
     # Check and import fixture definitions
     check_and_import_fixtures
-    
-    # Ensure all scripts are executable
-    for script in start.sh stop.sh logs.sh update.sh; do
-        if [ -f "$script" ]; then
-            chmod +x "$script"
-        fi
-    done
-    
+
     print_success "Setup complete!"
     echo ""
     echo "Next steps:"
-    echo "1. Run ./start.sh to start the platform"
+    echo "1. Launch the LacyLights app via the LacyLights.app bundle in your Applications folder"
     echo "2. Open http://localhost:3000 in your browser"
     echo ""
-    echo "Optional:"
-    echo "- Run './start.sh --with-mcp' to include AI features"
-    echo "- Run './logs.sh' to view service logs"
-    echo "- Run './update.sh' to update all components"
+    echo "Development mode (optional):"
+    echo "- Run scripts directly from the app bundle's Resources/scripts directory"
+    echo "- Or use the launcher script from the repository for development"
     echo ""
 }
 

@@ -96,11 +96,11 @@ fi
 
 # Create a temporary script that will run in Terminal
 TEMP_LAUNCHER="/tmp/lacylights_launcher_$$.sh"
-cat > "$TEMP_LAUNCHER" << 'LAUNCHER_EOF'
+cat > "$TEMP_LAUNCHER" <<EOF
 #!/bin/bash
 
 # Source paths from the app bundle
-source "RESOURCES_DIR_PLACEHOLDER/scripts/paths.sh"
+source "$RESOURCES_DIR/scripts/paths.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -109,36 +109,34 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}LacyLights Platform Launcher${NC}"
+echo -e "\${BLUE}LacyLights Platform Launcher\${NC}"
 echo "============================"
 echo ""
 
 # Check for updates if update script exists
-if [ -f "$RESOURCES_DIR/scripts/update-repos.sh" ]; then
-    echo -e "${BLUE}Checking for updates...${NC}"
+if [ -f "\$RESOURCES_DIR/scripts/update-repos.sh" ]; then
+    echo -e "\${BLUE}Checking for updates...\${NC}"
     echo ""
 
     # Run update check
-    if "$RESOURCES_DIR/scripts/update-repos.sh" --check; then
+    if "\$RESOURCES_DIR/scripts/update-repos.sh" --check; then
         echo ""
         echo -n "Updates are available. Would you like to update before starting? [Y/n] "
         read -r update_response
 
-        if [[ ! "$update_response" =~ ^([nN][oO]|[nN])$ ]]; then
+        if [[ ! "\$update_response" =~ ^([nN][oO]|[nN])$ ]]; then
             echo ""
-            "$RESOURCES_DIR/scripts/update-repos.sh" --auto
+            "\$RESOURCES_DIR/scripts/update-repos.sh" --auto
             echo ""
         fi
     fi
     echo ""
 fi
 
-# Source the network selection and startup from bundled script
-source "$RESOURCES_DIR/scripts/start.sh"
-LAUNCHER_EOF
+# Run the startup script as a separate process
+"\$RESOURCES_DIR/scripts/start.sh"
+EOF
 
-# Replace placeholder with actual resources directory
-sed -i '' "s|RESOURCES_DIR_PLACEHOLDER|$RESOURCES_DIR|" "$TEMP_LAUNCHER"
 chmod +x "$TEMP_LAUNCHER"
 
 # Launch in Terminal
