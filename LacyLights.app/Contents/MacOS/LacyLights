@@ -37,8 +37,8 @@ show_notification() {
     osascript -e "display notification \"$message\" with title \"$title\""
 }
 
-# Check if this is first run
-if is_first_run; then
+# Check if repositories are missing
+if repos_missing; then
     # Welcome dialog
     result=$(show_dialog "Welcome to LacyLights" "This appears to be your first time running LacyLights. Would you like to set up the platform now?" "\"Cancel\", \"Setup\"")
 

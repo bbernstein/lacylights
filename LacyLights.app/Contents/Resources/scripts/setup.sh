@@ -370,8 +370,8 @@ EOF
             fi
             needs_api_key=true
         else
-            # Check if API key is still the default
-            if grep -q "OPENAI_API_KEY=your-api-key-here" "lacylights-mcp/.env" || grep -q "OPENAI_API_KEY=$" "lacylights-mcp/.env" || ! grep -q "OPENAI_API_KEY=" "lacylights-mcp/.env"; then
+            # Check if API key is still the default or empty
+            if grep -q "OPENAI_API_KEY=your-api-key-here" "lacylights-mcp/.env" || grep -E -q '^OPENAI_API_KEY=(""|)$' "lacylights-mcp/.env" || ! grep -q "OPENAI_API_KEY=" "lacylights-mcp/.env"; then
                 needs_api_key=true
             fi
         fi

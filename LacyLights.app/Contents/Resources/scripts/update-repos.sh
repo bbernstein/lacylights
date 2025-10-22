@@ -87,6 +87,8 @@ get_latest_release_version() {
         # Fallback to grep/cut if jq not available
         local version=$(curl -s "$api_url" | grep '"tag_name"' | cut -d '"' -f 4)
         if [ -z "$version" ]; then
+            # Log warning to help debug version detection failures (network issues, rate limiting, etc.)
+            echo "Warning: Failed to detect latest version for $org/$repo (check network or GitHub API status)" >&2
             echo "unknown"
         else
             echo "$version"

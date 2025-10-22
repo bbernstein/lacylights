@@ -40,12 +40,12 @@ create_directories() {
     mkdir -p "$LACYLIGHTS_CACHE"
 }
 
-# Function to check if this is first run
-is_first_run() {
+# Function to check if required repositories are missing
+repos_missing() {
     if [ ! -d "$LACYLIGHTS_NODE_DIR" ] || [ ! -d "$LACYLIGHTS_FE_DIR" ]; then
-        return 0  # true - first run
+        return 0  # true - repos missing
     else
-        return 1  # false - not first run
+        return 1  # false - repos present
     fi
 }
 
