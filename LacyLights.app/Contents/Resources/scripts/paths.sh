@@ -14,6 +14,9 @@ else
     export LACYLIGHTS_RESOURCES="$LACYLIGHTS_APP_BUNDLE/Contents/Resources"
 fi
 
+# Convenience aliases for shorter variable names
+export RESOURCES_DIR="$LACYLIGHTS_RESOURCES"
+
 # Standard macOS user directories
 export LACYLIGHTS_APP_SUPPORT="$HOME/Library/Application Support/LacyLights"
 export LACYLIGHTS_LOGS="$HOME/Library/Logs/LacyLights"
