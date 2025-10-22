@@ -30,6 +30,12 @@ REPOS=(
     "lacylights-mcp"
 )
 
+# Default fixture script search paths (relative to lacylights-node directory)
+FIXTURE_SCRIPT_SEARCH_PATHS=(
+    "scripts/check-and-import-fixtures.ts"
+    "check-and-import-fixtures.ts"
+)
+
 # Function to print colored output
 print_status() {
     echo -e "${BLUE}==>${NC} $1"
@@ -469,8 +475,8 @@ check_and_import_fixtures() {
             if [ -n "$FIXTURE_SCRIPT_PATH" ]; then
                 FIXTURE_SCRIPT_PATHS+=("$FIXTURE_SCRIPT_PATH")
             fi
-            # Add default possible locations
-            FIXTURE_SCRIPT_PATHS+=("scripts/check-and-import-fixtures.ts" "check-and-import-fixtures.ts")
+            # Add default search paths from configuration
+            FIXTURE_SCRIPT_PATHS+=("${FIXTURE_SCRIPT_SEARCH_PATHS[@]}")
             
             FOUND_FIXTURE_SCRIPT=""
             for path in "${FIXTURE_SCRIPT_PATHS[@]}"; do
@@ -488,13 +494,9 @@ check_and_import_fixtures() {
                 local exit_code=$?
                 
                 if [ $exit_code -eq 0 ]; then
-                    # Show success output if there's meaningful content
-                    if echo "$OUTPUT_MSG" | grep -q "fixtures imported\|fixtures already exist\|fixtures found\|fixtures loaded"; then
-                        print_success "Fixture definitions processed successfully"
-                        echo "$OUTPUT_MSG" | grep -E "imported|\bexist\b|added|found|loaded" || true
-                    else
-                        print_success "Fixture check completed"
-                    fi
+                    # Success - show output and let fixture script's messages speak for themselves
+                    print_success "Fixture definitions processed successfully"
+                    echo "$OUTPUT_MSG"
                 else
                     print_warning "Could not check/import fixtures. You may need to import them manually."
                     echo -e "${YELLOW}Fixture import failed with the following error:${NC}\n${OUTPUT_MSG}"
