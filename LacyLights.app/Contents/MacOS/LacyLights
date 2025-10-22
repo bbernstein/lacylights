@@ -5,27 +5,18 @@
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-APP_DIR="$( cd "$SCRIPT_DIR/../.." && pwd )"
-LACYLIGHTS_DIR="$( cd "$APP_DIR/.." && pwd )"
+APP_BUNDLE="$( cd "$SCRIPT_DIR/../.." && pwd )"
+RESOURCES_DIR="$APP_BUNDLE/Contents/Resources"
 
-# Change to the lacylights directory
-cd "$LACYLIGHTS_DIR"
-
-# Check if this is first run (no sub-repos exist)
-FIRST_RUN=true
-for repo in lacylights-fe lacylights-node lacylights-mcp; do
-    if [ -d "$repo" ]; then
-        FIRST_RUN=false
-        break
-    fi
-done
+# Source the paths configuration
+source "$RESOURCES_DIR/scripts/paths.sh"
 
 # Function to show dialog
 show_dialog() {
     local title="$1"
     local message="$2"
     local buttons="${3:-OK}"
-    
+
     osascript -e "display dialog \"$message\" with title \"$title\" buttons {$buttons} default button 1"
 }
 
@@ -34,7 +25,7 @@ get_text_input() {
     local title="$1"
     local prompt="$2"
     local default_value="$3"
-    
+
     osascript -e "display dialog \"$prompt\" default answer \"$default_value\" with title \"$title\" buttons {\"Cancel\", \"OK\"} default button \"OK\"" | awk -F: '{print $NF}'
 }
 
@@ -42,75 +33,61 @@ get_text_input() {
 show_notification() {
     local title="$1"
     local message="$2"
-    
+
     osascript -e "display notification \"$message\" with title \"$title\""
 }
 
-# If first run, show setup wizard
-if [ "$FIRST_RUN" = true ]; then
+# Check if repositories are missing
+if repos_missing; then
     # Welcome dialog
     result=$(show_dialog "Welcome to LacyLights" "This appears to be your first time running LacyLights. Would you like to set up the platform now?" "\"Cancel\", \"Setup\"")
-    
+
     if [[ ! "$result" =~ "Setup" ]]; then
         exit 0
     fi
-    
-    # Try to detect GitHub organization from current repo
-    detected_org=""
-    if [ -d ".git" ]; then
-        remote_url=$(git config --get remote.origin.url 2>/dev/null)
-        if [ ! -z "$remote_url" ]; then
-            # Extract organization from URL
-            if [[ "$remote_url" =~ github\.com[:/]([^/]+)/[^/]+\.git$ ]]; then
-                detected_org="${BASH_REMATCH[1]}"
-            elif [[ "$remote_url" =~ github\.com[:/]([^/]+)/[^/]+ ]]; then
-                detected_org="${BASH_REMATCH[1]}"
-            fi
-        fi
-    fi
-    
-    # Get GitHub organization with detected default
-    github_org=$(get_text_input "GitHub Setup" "Enter your GitHub organization name (or leave blank to enter URLs manually):" "$detected_org")
-    
+
+    # Get GitHub organization (default to bbernstein)
+    github_org=$(get_text_input "GitHub Setup" "Enter your GitHub organization name:" "bbernstein")
+
     # Run setup in Terminal
     osascript <<EOF
 tell application "Terminal"
     activate
-    do script "cd '$LACYLIGHTS_DIR' && ./setup.sh $github_org"
-    
+    do script "source '$RESOURCES_DIR/scripts/paths.sh' && '$RESOURCES_DIR/scripts/setup.sh' $github_org"
+
     -- Wait for setup to complete
     delay 2
     repeat
         delay 1
         if not busy of window 1 then exit repeat
     end repeat
-    
+
     -- Keep terminal open for user to see results
     delay 3
 end tell
 EOF
-    
+
     # Wait for Terminal to finish
     sleep 5
-    
+
     # Check if setup was successful
-    if [ ! -d "lacylights-node" ] || [ ! -d "lacylights-fe" ]; then
+    if [ ! -d "$LACYLIGHTS_NODE_DIR" ] || [ ! -d "$LACYLIGHTS_FE_DIR" ]; then
         show_dialog "Setup Error" "Setup did not complete successfully. Please check the Terminal window for errors."
         exit 1
     fi
 fi
 
 # Check if OpenAI API key is needed
-if [ -d "lacylights-mcp" ] && [ -f "lacylights-mcp/.env" ]; then
-    if grep -q "OPENAI_API_KEY=your-api-key-here" "lacylights-mcp/.env"; then
+if [ -d "$LACYLIGHTS_MCP_DIR" ] && [ -f "$LACYLIGHTS_MCP_DIR/.env" ]; then
+    if grep -q "OPENAI_API_KEY=your-api-key-here" "$LACYLIGHTS_MCP_DIR/.env"; then
         result=$(show_dialog "AI Configuration" "Would you like to configure your OpenAI API key for AI features?" "\"Later\", \"Configure\"")
-        
+
         if [[ "$result" =~ "Configure" ]]; then
             api_key=$(get_text_input "OpenAI API Key" "Enter your OpenAI API key:" "")
-            
+
             if [ ! -z "$api_key" ]; then
                 # Update the .env file
-                sed -i '' "s/OPENAI_API_KEY=your-api-key-here/OPENAI_API_KEY=$api_key/" "lacylights-mcp/.env"
+                sed -i '' "s/OPENAI_API_KEY=your-api-key-here/OPENAI_API_KEY=$api_key/" "$LACYLIGHTS_MCP_DIR/.env"
                 show_notification "Configuration Updated" "OpenAI API key has been saved"
             fi
         fi
@@ -118,8 +95,12 @@ if [ -d "lacylights-mcp" ] && [ -f "lacylights-mcp/.env" ]; then
 fi
 
 # Create a temporary script that will run in Terminal
-cat > /tmp/lacylights_launcher.sh << 'LAUNCHER_EOF'
+TEMP_LAUNCHER=$(mktemp /tmp/lacylights_launcher.XXXXXX.sh)
+cat > "$TEMP_LAUNCHER" <<EOF
 #!/bin/bash
+
+# Source paths from the app bundle
+source "$RESOURCES_DIR/scripts/paths.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -128,314 +109,43 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}LacyLights Platform Launcher${NC}"
+echo -e "\${BLUE}LacyLights Platform Launcher\${NC}"
 echo "============================"
 echo ""
 
-cd "LACYLIGHTS_DIR_PLACEHOLDER"
-
-# Check if start.sh exists
-if [ ! -f "start.sh" ]; then
-    echo "Error: start.sh not found"
-    echo "Please run setup.sh first"
-    exit 1
-fi
-
 # Check for updates if update script exists
-if [ -f "update-repos.sh" ]; then
-    echo -e "${BLUE}Checking for updates...${NC}"
+if [ -f "\$RESOURCES_DIR/scripts/update-repos.sh" ]; then
+    echo -e "\${BLUE}Checking for updates...\${NC}"
     echo ""
-    
+
     # Run update check
-    if ./update-repos.sh --check; then
+    if "\$RESOURCES_DIR/scripts/update-repos.sh" --check; then
         echo ""
         echo -n "Updates are available. Would you like to update before starting? [Y/n] "
         read -r update_response
-        
-        if [[ ! "$update_response" =~ ^([nN][oO]|[nN])$ ]]; then
+
+        if [[ ! "\$update_response" =~ ^([nN][oO]|[nN])$ ]]; then
             echo ""
-            ./update-repos.sh --auto
+            "\$RESOURCES_DIR/scripts/update-repos.sh" --auto
             echo ""
         fi
     fi
     echo ""
 fi
 
-# Function to get interface type (WiFi, Ethernet, etc.)
-get_interface_type() {
-    local iface="$1"
-    local hardware_info
-    
-    # Get hardware port information
-    hardware_info=$(networksetup -listallhardwareports | grep -B2 "Device: $iface" | head -3)
-    
-    if echo "$hardware_info" | grep -qi "wi-fi\|wifi\|wireless"; then
-        echo "WiFi"
-    elif echo "$hardware_info" | grep -qi "usb.*lan\|usb.*ethernet\|usb.*100"; then
-        echo "USB Ethernet"
-    elif echo "$hardware_info" | grep -qi "thunderbolt"; then
-        echo "Thunderbolt"
-    elif echo "$hardware_info" | grep -qi "bridge"; then
-        echo "Bridge"
-    elif echo "$hardware_info" | grep -qi "ethernet\|lan\|wired"; then
-        echo "Ethernet"
-    elif echo "$hardware_info" | grep -qi "usb"; then
-        echo "USB"
-    else
-        # Fallback: check interface name patterns
-        case "$iface" in
-            en0) echo "WiFi" ;;  # en0 is typically WiFi on macOS
-            en[1-9]*) 
-                echo "Ethernet"
-                ;;
-            *) echo "Unknown" ;;
-        esac
-    fi
-}
+# Run the startup script as a separate process
+"\$RESOURCES_DIR/scripts/start.sh"
+EOF
 
-# Function to get network interfaces
-get_network_interfaces() {
-    local ethernet_interfaces=()
-    local ethernet_descriptions=()
-    local ethernet_broadcasts=()
-    local ethernet_local_ips=()
-    
-    local wifi_interfaces=()
-    local wifi_descriptions=()
-    local wifi_broadcasts=()
-    local wifi_local_ips=()
-    
-    local other_interfaces=()
-    local other_descriptions=()
-    local other_broadcasts=()
-    local other_local_ips=()
-    
-    # Get network interfaces using a simpler approach
-    # Get all interface names
-    for iface in $(ifconfig -l); do
-        # Skip loopback
-        if [[ "$iface" == "lo0" ]]; then
-            continue
-        fi
-        
-        # Get the inet line for this interface
-        inet_line=$(ifconfig "$iface" | grep "inet " | grep -v "127.0.0.1" | head -1)
-        
-        if [[ -n "$inet_line" ]]; then
-            # Extract IP address (field 2)
-            ip=$(echo "$inet_line" | awk '{print $2}')
-            
-            # Extract broadcast address if present
-            if echo "$inet_line" | grep -q "broadcast"; then
-                broadcast=$(echo "$inet_line" | sed -n 's/.*broadcast \([0-9.]*\).*/\1/p')
-            else
-                # Fallback: calculate broadcast for typical /24 network
-                broadcast="${ip%.*}.255"
-            fi
-            
-            if [[ -n "$ip" && "$ip" != "127.0.0.1" && -n "$broadcast" && "$broadcast" != "$ip" ]]; then
-                # Get interface type
-                iface_type=$(get_interface_type "$iface")
-                
-                # Add emoji for interface type
-                case "$iface_type" in
-                    "WiFi") type_icon="📶" ;;
-                    "Ethernet") type_icon="🌐" ;;
-                    "USB Ethernet"|"USB") type_icon="🔌" ;;
-                    "Thunderbolt") type_icon="⚡" ;;
-                    "Bridge") type_icon="🔗" ;;
-                    *) type_icon="📡" ;;
-                esac
-                
-                # Only add broadcast option (no unicast)
-                description="$type_icon $iface - $iface_type Broadcast ($broadcast)"
-                
-                # Sort by interface type
-                case "$iface_type" in
-                    "Ethernet"|"USB Ethernet"|"USB"|"Thunderbolt")
-                        ethernet_interfaces+=("$broadcast")
-                        ethernet_descriptions+=("$description")
-                        ethernet_broadcasts+=("$broadcast")
-                        ethernet_local_ips+=("$ip")
-                        ;;
-                    "WiFi")
-                        wifi_interfaces+=("$broadcast")
-                        wifi_descriptions+=("$description")
-                        wifi_broadcasts+=("$broadcast")
-                        wifi_local_ips+=("$ip")
-                        ;;
-                    *)
-                        other_interfaces+=("$broadcast")
-                        other_descriptions+=("$description")
-                        other_broadcasts+=("$broadcast")
-                        other_local_ips+=("$ip")
-                        ;;
-                esac
-            fi
-        fi
-    done
-    
-    # Build final sorted arrays: ethernet, wifi, other, localhost, global broadcast
-    local interfaces=()
-    local descriptions=()
-    local broadcasts=()
-    local local_ips=()
-    
-    # Add ethernet interfaces first
-    for i in "${!ethernet_interfaces[@]}"; do
-        interfaces+=("${ethernet_interfaces[i]}")
-        descriptions+=("${ethernet_descriptions[i]}")
-        broadcasts+=("${ethernet_broadcasts[i]}")
-        local_ips+=("${ethernet_local_ips[i]}")
-    done
-    
-    # Add wifi interfaces
-    for i in "${!wifi_interfaces[@]}"; do
-        interfaces+=("${wifi_interfaces[i]}")
-        descriptions+=("${wifi_descriptions[i]}")
-        broadcasts+=("${wifi_broadcasts[i]}")
-        local_ips+=("${wifi_local_ips[i]}")
-    done
-    
-    # Add other interfaces
-    for i in "${!other_interfaces[@]}"; do
-        interfaces+=("${other_interfaces[i]}")
-        descriptions+=("${other_descriptions[i]}")
-        broadcasts+=("${other_broadcasts[i]}")
-        local_ips+=("${other_local_ips[i]}")
-    done
-    
-    # Add localhost option
-    interfaces+=("127.0.0.1")
-    descriptions+=("Localhost (for testing only)")
-    broadcasts+=("127.0.0.1")
-    local_ips+=("127.0.0.1")
-    
-    # Add global broadcast
-    interfaces+=("255.255.255.255")
-    descriptions+=("Global Broadcast (255.255.255.255)")
-    broadcasts+=("255.255.255.255")
-    local_ips+=("0.0.0.0")
-    
-    echo "Available Network Interface Options:"
-    echo "============================================================"
-    for i in "${!descriptions[@]}"; do
-        printf "[%d] %s\n" $((i+1)) "${descriptions[i]}"
-        if [ "${local_ips[i]}" != "${broadcasts[i]}" ]; then
-            printf "    Address: %s -> %s\n" "${local_ips[i]}" "${broadcasts[i]}"
-        else
-            printf "    Address: %s\n" "${local_ips[i]}"
-        fi
-    done
-    echo "============================================================"
-    echo ""
-    echo "📡 Select Art-Net broadcast destination:"
-    echo "   (This determines where DMX data will be sent)"
-    echo "   Press Enter for default (first option)"
-    echo ""
-    
-    local default_index=1
-    echo -n "Select option [1-${#interfaces[@]}] (default: $default_index): "
-    read -r interface_choice
-    
-    if [[ -z "$interface_choice" ]]; then
-        interface_choice=$default_index
-    fi
-    
-    # Validate choice
-    if [[ "$interface_choice" =~ ^[0-9]+$ ]] && [ "$interface_choice" -ge 1 ] && [ "$interface_choice" -le "${#interfaces[@]}" ]; then
-        local selected_index=$((interface_choice-1))
-        echo ""
-        echo -e "${GREEN}✅ Selected: ${descriptions[selected_index]}${NC}"
-        echo -e "${GREEN}   Broadcasting to: ${broadcasts[selected_index]}${NC}"
-        echo ""
-        
-        # Export the selected interface
-        export ARTNET_BROADCAST="${broadcasts[selected_index]}"
-    else
-        echo ""
-        echo -e "${YELLOW}⚠️  Invalid selection, using first option as default${NC}"
-        local selected_index=0
-        echo -e "${GREEN}✅ Selected: ${descriptions[selected_index]}${NC}"
-        echo -e "${GREEN}   Broadcasting to: ${broadcasts[selected_index]}${NC}"
-        export ARTNET_BROADCAST="${broadcasts[selected_index]}"
-        echo ""
-    fi
-}
-
-# Check if ARTNET_BROADCAST is already configured
-NEED_SELECTION=true
-if [ -f "lacylights-node/.env" ] && grep -q "^ARTNET_BROADCAST=" "lacylights-node/.env"; then
-    # Extract the configured value
-    SAVED_BROADCAST=$(grep "^ARTNET_BROADCAST=" "lacylights-node/.env" | cut -d'=' -f2 | tr -d '"')
-    echo -e "${GREEN}✅ Saved Art-Net broadcast address: ${SAVED_BROADCAST}${NC}"
-    echo ""
-    echo -n "Use this address? [Y/n] "
-    read -r use_saved
-
-    if [[ ! "$use_saved" =~ ^([nN][oO]|[nN])$ ]]; then
-        ARTNET_BROADCAST="$SAVED_BROADCAST"
-        NEED_SELECTION=false
-        echo ""
-    else
-        echo ""
-    fi
-fi
-
-if [ "$NEED_SELECTION" = true ]; then
-    # Ask about network interface selection
-    echo -e "${BLUE}Network Interface Selection${NC}"
-    echo "Choose which network interface to use for Art-Net DMX broadcasting:"
-    echo ""
-    get_network_interfaces
-
-    # Save the selection to .env for next time
-    if [ -n "$ARTNET_BROADCAST" ] && [ -f "lacylights-node/.env" ]; then
-        # Check if ARTNET_BROADCAST line already exists
-        if grep -q "^#.*ARTNET_BROADCAST=" "lacylights-node/.env" || grep -q "^ARTNET_BROADCAST=" "lacylights-node/.env"; then
-            # Replace the existing line (commented or not)
-            sed -i '' "s|^#.*ARTNET_BROADCAST=.*|ARTNET_BROADCAST=\"$ARTNET_BROADCAST\"|" "lacylights-node/.env"
-            sed -i '' "s|^ARTNET_BROADCAST=.*|ARTNET_BROADCAST=\"$ARTNET_BROADCAST\"|" "lacylights-node/.env"
-        else
-            # Add new line after the Art-Net Configuration section
-            sed -i '' "/# Art-Net Configuration/a\\
-ARTNET_BROADCAST=\"$ARTNET_BROADCAST\"
-" "lacylights-node/.env"
-        fi
-        echo -e "${GREEN}✅ Saved selection to lacylights-node/.env${NC}"
-        echo ""
-    fi
-fi
-
-# Ask about MCP
-echo "Would you like to start the AI integration server (MCP)?"
-echo "Note: This requires an OpenAI API key configured in lacylights-mcp/.env"
-echo ""
-echo -n "Start with MCP? [y/N] "
-read -r response
-
-if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-    echo ""
-    echo -e "${GREEN}Starting LacyLights with AI integration...${NC}"
-    ARTNET_BROADCAST="$ARTNET_BROADCAST" ./start.sh --with-mcp
-else
-    echo ""
-    echo -e "${GREEN}Starting LacyLights...${NC}"
-    ARTNET_BROADCAST="$ARTNET_BROADCAST" ./start.sh
-fi
-LAUNCHER_EOF
-
-# Replace placeholder with actual directory
-sed -i '' "s|LACYLIGHTS_DIR_PLACEHOLDER|$LACYLIGHTS_DIR|" /tmp/lacylights_launcher.sh
-chmod +x /tmp/lacylights_launcher.sh
+chmod +x "$TEMP_LAUNCHER"
 
 # Launch in Terminal
 osascript <<EOF
 tell application "Terminal"
     activate
-    do script "/tmp/lacylights_launcher.sh"
+    do script "$TEMP_LAUNCHER"
 end tell
 EOF
 
 # Clean up after a delay
-(sleep 10 && rm -f /tmp/lacylights_launcher.sh) &
+(sleep 10 && rm -f "$TEMP_LAUNCHER") &
