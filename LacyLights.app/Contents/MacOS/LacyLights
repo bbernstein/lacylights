@@ -95,7 +95,7 @@ if [ -d "$LACYLIGHTS_MCP_DIR" ] && [ -f "$LACYLIGHTS_MCP_DIR/.env" ]; then
 fi
 
 # Create a temporary script that will run in Terminal
-TEMP_LAUNCHER="/tmp/lacylights_launcher_$$.sh"
+TEMP_LAUNCHER=$(mktemp /tmp/lacylights_launcher.XXXXXX.sh)
 cat > "$TEMP_LAUNCHER" <<EOF
 #!/bin/bash
 

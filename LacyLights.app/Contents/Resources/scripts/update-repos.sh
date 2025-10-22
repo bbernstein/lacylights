@@ -219,7 +219,7 @@ update_repo() {
 
     # Remove old directory and replace with new
     # Validate path before deletion to prevent accidents
-    if [ -z "$repo_dir" ] || [ "$repo_dir" = "/" ] || [ "$repo_dir" = "." ] || [[ "$repo_dir" =~ \.\. ]]; then
+    if [ -z "$repo_dir" ] || [ "$repo_dir" = "/" ] || [ "$repo_dir" = "." ] || [[ "$repo_dir" =~ (^|/)\.\.(/|$) ]]; then
         print_error "Invalid repository directory path: $repo_dir"
         rm -rf "$temp_dir" "$temp_backup"
         return 1

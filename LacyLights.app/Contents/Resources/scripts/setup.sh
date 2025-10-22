@@ -312,8 +312,7 @@ setup_environment() {
             cp "lacylights-node/.env.example" "lacylights-node/.env"
             print_success "Created lacylights-node/.env from example"
         else
-            # Fallback: create minimal .env with SQLite
-            # This is used when .env.example is missing or corrupted
+            # Fallback: create minimal .env with SQLite defaults when .env.example is missing or corrupted
             cat > "lacylights-node/.env" << EOF
 # Database (SQLite)
 DATABASE_URL="file:./dev.db"
@@ -485,8 +484,7 @@ check_and_import_fixtures() {
                 else
                     print_warning "Could not check/import fixtures. You may need to import them manually."
                     echo -e "${YELLOW}Error output:${NC}\n${OUTPUT_MSG}"
-                    # Note: Using 'exit 1' here is correct - it exits the subshell with error status,
-                    # and $? is set to the subshell's exit code immediately after the subshell finishes
+                    # Exit subshell with error status to signal failure to parent
                     exit 1
                 fi
             else

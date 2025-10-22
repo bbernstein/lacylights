@@ -192,7 +192,7 @@ start_frontend() {
 
 # Function to start MCP server (optional)
 start_mcp() {
-    if [ "$1" == "--with-mcp" ] || [ "$1" == "-m" ]; then
+    if [ "$1" = "--with-mcp" ] || [ "$1" = "-m" ]; then
         print_status "Starting MCP server..."
 
         if [ -d "lacylights-mcp" ]; then
@@ -267,7 +267,7 @@ show_logs() {
     print_status "Services are running. Logs are available in the $LOGS_DIR directory:"
     echo "  - Backend:  tail -f $LOGS_DIR/backend.log"
     echo "  - Frontend: tail -f $LOGS_DIR/frontend.log"
-    if [ "$1" == "--with-mcp" ] || [ "$1" == "-m" ]; then
+    if [ "$1" = "--with-mcp" ] || [ "$1" = "-m" ]; then
         echo "  - MCP:      tail -f $LOGS_DIR/mcp.log"
     fi
     echo ""

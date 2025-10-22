@@ -57,7 +57,7 @@ Contains all application logs:
 ### Cache
 **Location**: `~/Library/Caches/LacyLights/`
 
-Reserved for temporary files and downloads (currently unused, available for future use).
+Reserved for temporary files and downloads (currently unused; available for future use).
 
 ## Environment Variables
 
