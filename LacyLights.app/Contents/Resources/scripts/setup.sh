@@ -52,6 +52,20 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to check if OpenAI API key needs to be set
+needs_openai_api_key() {
+    local env_file="$1"
+
+    # Check if API key is default placeholder, empty, or missing
+    if grep -q "OPENAI_API_KEY=your-api-key-here" "$env_file" || \
+       grep -E -q '^OPENAI_API_KEY=(""|)$' "$env_file" || \
+       ! grep -q "OPENAI_API_KEY=" "$env_file"; then
+        return 0  # true - needs API key
+    else
+        return 1  # false - has valid API key
+    fi
+}
+
 # Function to get tarball URL from GitHub release with error handling
 get_release_tarball_url() {
     local org="$1"
@@ -308,11 +322,11 @@ setup_environment() {
     
     # lacylights-node environment
     if [ -d "lacylights-node" ] && [ ! -f "lacylights-node/.env" ]; then
-        if [ -f "lacylights-node/.env.example" ]; then
+        if [ -f "lacylights-node/.env.example" ] && [ -s "lacylights-node/.env.example" ]; then
             cp "lacylights-node/.env.example" "lacylights-node/.env"
             print_success "Created lacylights-node/.env from example"
         else
-            # Fallback: create minimal .env with SQLite defaults when .env.example is missing or corrupted
+            # Fallback: create minimal .env with SQLite defaults when .env.example is missing or empty
             cat > "lacylights-node/.env" << EOF
 # Database (SQLite)
 DATABASE_URL="file:./dev.db"
@@ -371,7 +385,7 @@ EOF
             needs_api_key=true
         else
             # Check if API key is still the default or empty
-            if grep -q "OPENAI_API_KEY=your-api-key-here" "lacylights-mcp/.env" || grep -E -q '^OPENAI_API_KEY=(""|)$' "lacylights-mcp/.env" || ! grep -q "OPENAI_API_KEY=" "lacylights-mcp/.env"; then
+            if needs_openai_api_key "lacylights-mcp/.env"; then
                 needs_api_key=true
             fi
         fi
@@ -483,7 +497,7 @@ check_and_import_fixtures() {
                     fi
                 else
                     print_warning "Could not check/import fixtures. You may need to import them manually."
-                    echo -e "${YELLOW}Error output:${NC}\n${OUTPUT_MSG}"
+                    echo -e "${YELLOW}Fixture import failed with the following error:${NC}\n${OUTPUT_MSG}"
                     # Exit subshell with error status to signal failure to parent
                     exit 1
                 fi

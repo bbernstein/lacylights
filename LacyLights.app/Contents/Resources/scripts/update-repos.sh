@@ -88,7 +88,7 @@ get_latest_release_version() {
         local version=$(curl -s "$api_url" | grep '"tag_name"' | cut -d '"' -f 4)
         if [ -z "$version" ]; then
             # Log warning to help debug version detection failures (network issues, rate limiting, etc.)
-            echo "Warning: Failed to detect latest version for $org/$repo (check network or GitHub API status)" >&2
+            echo "Warning: Failed to detect latest version for $org/$repo. Check your network connection or GitHub API rate limits (https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting)" >&2
             echo "unknown"
         else
             echo "$version"
