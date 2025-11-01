@@ -40,6 +40,17 @@ An MCP (Model Context Protocol) server that provides AI-powered theatrical light
 
 **Repository**: [lacylights-mcp](https://github.com/bbernstein/lacylights-mcp)
 
+### 🍎 lacylights-mac - Native macOS Application
+A native Swift/SwiftUI application for macOS that provides turnkey setup and management:
+- **One-Click Setup** - Automated repository cloning and dependency installation
+- **Service Management** - Start/stop backend, frontend, and MCP with health monitoring
+- **Embedded Web View** - Integrated browser for the lighting control interface
+- **Update Management** - Check for and install updates across all repositories
+- **Console Monitoring** - Real-time log viewing for all services
+- **Menu Bar Integration** - Quick access to common operations
+
+**Repository**: [lacylights-mac](https://github.com/bbernstein/lacylights-mac)
+
 ## How It Works
 
 ```
@@ -133,13 +144,28 @@ The easiest way to get started for development is using our automated scripts:
 ./start.sh --with-mcp
 ```
 
-#### macOS App
+#### Native macOS Application (Recommended for macOS Users)
 
-On macOS, you can use the LacyLights.app which provides:
-- Automatic update checking on launch
-- GUI prompts for configuration
-- Integrated terminal management
-- Easy setup wizard for first-time users
+For the best experience on macOS, use the native LacyLights application:
+
+**Download**: [Latest Release](https://github.com/bbernstein/lacylights-mac/releases)
+
+The native app provides:
+- One-click setup wizard with automatic dependency installation
+- Service management with health monitoring
+- Embedded web interface (no separate browser needed)
+- Real-time console logs for all services
+- Update checking and automatic repository updates
+- Menu bar integration for quick access
+
+**Quick Start**:
+1. Download `LacyLights-X.X.X-macOS.zip` from releases
+2. Extract and move to Applications folder
+3. Right-click and "Open" (first time only)
+4. Follow the setup wizard
+5. Click "Start Services" and you're ready!
+
+See the [lacylights-mac repository](https://github.com/bbernstein/lacylights-mac) for detailed documentation.
 
 #### Manual Development Setup
 
