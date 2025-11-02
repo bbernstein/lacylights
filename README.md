@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="resources/lacylights-logo-square.png" alt="LacyLights Logo" width="200"/>
+</p>
+
 # LacyLights - Theatrical Lighting Control System
 
 LacyLights is a comprehensive theatrical lighting control system composed of three integrated components that work together to provide powerful, AI-enhanced lighting design and control capabilities.
