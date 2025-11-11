@@ -51,5 +51,5 @@ build/
 tmp/
 temp/
 
-# Mac app bundle (contains generated icon)
-LacyLights.app/Contents/Resources/AppIcon.icns
+# Mac app bundle
+# Note: AppIcon.icns is now tracked in git to maintain branding
