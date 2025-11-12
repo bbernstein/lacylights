@@ -1,0 +1,29 @@
+[Unit]
+Description=LacyLights Backend Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lacylights
+WorkingDirectory=/opt/lacylights/backend
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /opt/lacylights/backend/dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lacylights-backend
+
+# Resource limits
+LimitNOFILE=65536
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/lacylights /var/lib/lacylights /var/log/lacylights
+
+[Install]
+WantedBy=multi-user.target
