@@ -1,22 +1,7 @@
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
 # Sub-repositories (managed separately)
 /lacylights-fe/
 /lacylights-node/
 /lacylights-mcp/
-
-# Environment files
-.env
-.env.local
-.env.production.local
-.env.development.local
-.env.test.local
 
 # IDE
 .vscode/
@@ -26,30 +11,10 @@ lerna-debug.log*
 *~
 .DS_Store
 
-# Logs
+# Logs (from old deployment scripts)
 logs/
 *.log
-
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# Docker volumes
-docker-data/
-
-# Build outputs
-dist/
-build/
-
-# Database
-*.sqlite
-*.sqlite3
 
 # Temporary files
 tmp/
 temp/
-
-# Mac app bundle
-# Note: AppIcon.icns is now tracked in git to maintain branding
