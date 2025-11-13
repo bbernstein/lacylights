@@ -166,15 +166,21 @@ start_frontend() {
         # Create logs directory if it doesn't exist
         mkdir -p "$LOGS_DIR"
 
+        # Set environment variables for backend connection
+        # The frontend's /api/config endpoint reads these to provide runtime configuration
+        export GRAPHQL_URL="http://localhost:4000/graphql"
+        export GRAPHQL_WS_URL="ws://localhost:4000/graphql"
+
         # Start the frontend
         print_status "Starting lacylights-fe on port 3000..."
+        print_status "  Backend GraphQL URL: $GRAPHQL_URL"
         npm run dev > "$LOGS_DIR/frontend.log" 2>&1 &
         local frontend_pid=$!
         PIDS+=($frontend_pid)
-        
+
         # Wait a moment for the process to start
         sleep 2
-        
+
         if kill -0 "$frontend_pid" 2>/dev/null; then
             print_success "Frontend is starting (PID: $frontend_pid)"
         else
@@ -182,7 +188,7 @@ start_frontend() {
             cd ..
             return 1
         fi
-        
+
         cd ..
     else
         print_error "lacylights-fe directory not found"
