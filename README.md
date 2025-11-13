@@ -98,43 +98,19 @@ A native Swift/SwiftUI application for macOS that provides turnkey setup and man
 
 ### 🍓 Raspberry Pi Deployment (Production)
 
-**For turnkey Raspberry Pi hardware deployment:**
+**For turnkey Raspberry Pi hardware deployment, see:**
 
 📖 **[lacylights-rpi Repository](https://github.com/bbernstein/lacylights-rpi)**
 
-The lacylights-rpi repository provides complete Raspberry Pi deployment infrastructure including:
-- Automated setup scripts for fresh Raspberry Pi installation
-- Version management and update system
-- Nginx configuration for static frontend hosting
-- Systemd service management
-- Comprehensive documentation and troubleshooting guides
-
-See the [lacylights-rpi README](https://github.com/bbernstein/lacylights-rpi) for complete instructions.
+The lacylights-rpi repository provides complete Raspberry Pi deployment infrastructure with automated setup scripts, version management, nginx configuration, systemd services, and comprehensive documentation.
 
 ### 🍎 macOS Native Application
 
-**For the best experience on macOS:**
+**For the best macOS experience, see:**
 
 📖 **[lacylights-mac Repository](https://github.com/bbernstein/lacylights-mac)**
 
-Download the native LacyLights application: **[Latest Release](https://github.com/bbernstein/lacylights-mac/releases)**
-
-The native app provides:
-- One-click setup wizard with automatic dependency installation
-- Service management with health monitoring
-- Embedded web interface (no separate browser needed)
-- Real-time console logs for all services
-- Update checking and automatic repository updates
-- Menu bar integration for quick access
-
-**Quick Start**:
-1. Download `LacyLights-X.X.X-macOS.zip` from releases
-2. Extract and move to Applications folder
-3. Right-click and "Open" (first time only)
-4. Follow the setup wizard
-5. Click "Start Services" and you're ready!
-
-See the [lacylights-mac README](https://github.com/bbernstein/lacylights-mac) for detailed documentation.
+The lacylights-mac repository provides a native Swift application with one-click setup, service management, embedded web interface, and automatic updates. Download the latest release and follow the setup wizard to get started.
 
 ### 💻 Development Setup (Manual)
 
