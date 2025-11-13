@@ -96,63 +96,28 @@ A native Swift/SwiftUI application for macOS that provides turnkey setup and man
 
 ## Getting Started
 
-### Raspberry Pi Deployment (Recommended for Production)
+### 🍓 Raspberry Pi Deployment (Production)
 
-**LacyLights is designed to run as a turnkey hardware product on Raspberry Pi.**
+**For turnkey Raspberry Pi hardware deployment:**
 
-For complete Raspberry Pi deployment instructions, see:
-📖 **[Raspberry Pi Deployment Guide](https://github.com/bbernstein/lacylights-node/blob/main/deploy/DEPLOYMENT.md)**
+📖 **[lacylights-rpi Repository](https://github.com/bbernstein/lacylights-rpi)**
 
-Quick deployment steps:
-```bash
-# 1. Copy deployment script to Raspberry Pi
-scp lacylights-node/deploy/deploy.sh pi@lacylights.local:/tmp/
-
-# 2. SSH into Raspberry Pi
-ssh pi@lacylights.local
-
-# 3. Run deployment (installs everything automatically)
-sudo bash /tmp/deploy.sh
-```
-
-After deployment, access LacyLights at `http://lacylights.local`
-
-**Features:**
-- Automated installation and configuration
-- Static export frontend with nginx
-- SQLite database (no Docker required)
+The lacylights-rpi repository provides complete Raspberry Pi deployment infrastructure including:
+- Automated setup scripts for fresh Raspberry Pi installation
+- Version management and update system
+- Nginx configuration for static frontend hosting
 - Systemd service management
-- Art-Net DMX output support
-- ~350MB RAM footprint
+- Comprehensive documentation and troubleshooting guides
 
-### Development Setup (macOS/Linux)
+See the [lacylights-rpi README](https://github.com/bbernstein/lacylights-rpi) for complete instructions.
 
-#### Quick Start with Scripts
+### 🍎 macOS Native Application
 
-The easiest way to get started for development is using our automated scripts:
+**For the best experience on macOS:**
 
-```bash
-# Initial setup - clones all repositories and installs dependencies
-./setup.sh [your-github-username]
+📖 **[lacylights-mac Repository](https://github.com/bbernstein/lacylights-mac)**
 
-# Check for updates across all repositories
-./update.sh --check
-
-# Update all repositories to latest versions
-./update.sh
-
-# Start all services
-./start.sh
-
-# Start with AI integration
-./start.sh --with-mcp
-```
-
-#### Native macOS Application (Recommended for macOS Users)
-
-For the best experience on macOS, use the native LacyLights application:
-
-**Download**: [Latest Release](https://github.com/bbernstein/lacylights-mac/releases)
+Download the native LacyLights application: **[Latest Release](https://github.com/bbernstein/lacylights-mac/releases)**
 
 The native app provides:
 - One-click setup wizard with automatic dependency installation
@@ -169,9 +134,9 @@ The native app provides:
 4. Follow the setup wizard
 5. Click "Start Services" and you're ready!
 
-See the [lacylights-mac repository](https://github.com/bbernstein/lacylights-mac) for detailed documentation.
+See the [lacylights-mac README](https://github.com/bbernstein/lacylights-mac) for detailed documentation.
 
-#### Manual Development Setup
+### 💻 Development Setup (Manual)
 
 To run the complete LacyLights system manually:
 
