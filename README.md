@@ -10,16 +10,17 @@ LacyLights is a comprehensive theatrical lighting control system composed of thr
 
 The LacyLights system consists of three main components:
 
-### 🎭 lacylights-node - Backend Engine
-A professional stage lighting control system built with Node.js, GraphQL, and TypeScript. This server provides:
+### 🎭 lacylights-go - Backend Engine
+A professional stage lighting control system built with Go, GraphQL, and GORM. This server provides:
 - **GraphQL API** with real-time subscriptions
 - Multi-universe DMX512 control with priority system
 - Scene and cue list management with preview capabilities
 - Fixture library with built-in and custom fixture definitions
 - Multi-user collaboration with role-based permissions
-- SQLite database with Prisma ORM for lightweight, portable storage
+- SQLite database with GORM for lightweight, portable storage
+- Native binaries for Raspberry Pi and macOS
 
-**Repository**: [lacylights-node](https://github.com/bbernstein/lacylights-node)
+**Repository**: [lacylights-go](https://github.com/bbernstein/lacylights-go)
 
 ### 🖥️ lacylights-fe - Frontend Web Interface
 A Next.js 15-based web frontend built with TypeScript and Tailwind CSS. It provides:
@@ -60,7 +61,7 @@ A native Swift/SwiftUI application for macOS that provides turnkey setup and man
 ```
 ┌─────────────────┐        ┌──────────────────┐     ┌─────────────────┐
 │                 │        │                  │     │                 │
-│  lacylights-fe  │───────▶│ lacylights-node  │────▶│  DMX Hardware   │
+│  lacylights-fe  │───────▶│ lacylights-go    │────▶│  DMX Hardware   │
 │   (Frontend)    │GraphQL │    (Backend)     │ DMX │   (Fixtures)    │
 │                 │   +    │                  │     │                 │
 └─────────────────┘   WS   └──────────────────┘     └─────────────────┘
@@ -86,7 +87,7 @@ A native Swift/SwiftUI application for macOS that provides turnkey setup and man
 
 1. **Frontend Control**: Users interact with the web interface (lacylights-fe) to manually control fixtures, create scenes, and manage cue lists. The frontend uses Apollo Client to communicate via GraphQL queries, mutations, and subscriptions.
 
-2. **Backend Processing**: The frontend communicates with the backend engine (lacylights-node) via GraphQL API with WebSocket support for real-time updates. The backend manages all lighting state, processes commands, and outputs DMX signals to physical lighting fixtures.
+2. **Backend Processing**: The frontend communicates with the backend engine (lacylights-go) via GraphQL API with WebSocket support for real-time updates. The backend manages all lighting state, processes commands, and outputs DMX signals to physical lighting fixtures.
 
 3. **AI Enhancement**: The MCP server (lacylights-mcp) connects to the same GraphQL API and provides an additional control path, allowing AI assistants to:
    - Analyze theatrical scripts and suggest lighting designs
@@ -118,15 +119,14 @@ To run the complete LacyLights system manually:
 
 1. **Start the Backend Engine**:
    ```bash
-   cd lacylights-node
-   npm install
+   cd lacylights-go
 
-   # Set up the database (SQLite - no Docker required)
-   npm run db:generate
-   npm run db:migrate
+   # Build and run the server
+   make build
+   ./lacylights-go
 
-   # Start development server
-   npm run dev
+   # Or run in development mode
+   make run
    ```
    The GraphQL playground will be available at `http://localhost:4000/graphql`
 
