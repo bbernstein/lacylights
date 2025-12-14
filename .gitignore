@@ -1,7 +1,11 @@
 # Sub-repositories (managed separately)
 /lacylights-fe/
-/lacylights-node/
+/lacylights-go/
 /lacylights-mcp/
+/lacylights-rpi/
+/lacylights-mac/
+/lacylights-terraform/
+/lacylights-test/
 
 # IDE
 .vscode/
