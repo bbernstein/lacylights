@@ -35,7 +35,7 @@ Each repository has its own CLAUDE.md with specific guidance. Read the relevant 
 
 ## Current Implementation Project
 
-**Raspberry Pi Hardware Product**: We are implementing LacyLights as a turnkey hardware product for Raspberry Pi. See `docs/RASPBERRY_PI_PRODUCT_PLAN.md` for the complete implementation plan, architecture, and progress tracking.
+**Raspberry Pi Hardware Product**: We are implementing LacyLights as a turnkey hardware product for Raspberry Pi. See the parent directory's `docs/RASPBERRY_PI_PRODUCT_PLAN.md` for the complete implementation plan, architecture, and progress tracking.
 
 ## Important Search Warning
 
@@ -84,17 +84,18 @@ The `lacylights-test` repository is **NOT a unit test repo**. It's the central i
 
 ## Key Documentation
 
+These docs are located in the parent working directory (`../docs/`), not within this repository:
+
 | Document | Location | Purpose |
 |----------|----------|---------|
-| RPi Product Plan | `docs/RASPBERRY_PI_PRODUCT_PLAN.md` | Hardware product implementation |
+| RPi Product Plan | `../docs/RASPBERRY_PI_PRODUCT_PLAN.md` | Hardware product implementation |
 | Testing Plan | `lacylights-test/docs/TESTING_PLAN.md` | Integration testing strategy |
-| Go Distribution | `docs/GO_DISTRIBUTION_PLAN.md` | Binary releases |
-| Contract Testing | `docs/CONTRACT_TESTING_PLAN.md` | API contract validation |
+| Go Distribution | `../docs/GO_DISTRIBUTION_PLAN.md` | Binary releases |
 
 ## Completed Features
 
 ### Channel Fade Behavior (2025-12-10)
-Added per-channel control over DMX fade behavior during scene transitions. See `docs/CHANNEL_FADE_BEHAVIOR_PLAN.md`.
+Added per-channel control over DMX fade behavior during scene transitions.
 
 ### Mobile Scene Board Optimization (2025-11-22)
-Converted Scene Board to pixel-based coordinates with touch gesture support. See `docs/MOBILE_SCENE_BOARD_PLAN.md`.
+Converted Scene Board to pixel-based coordinates with touch gesture support.
