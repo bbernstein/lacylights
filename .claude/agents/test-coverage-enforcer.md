@@ -1,6 +1,44 @@
 ---
 name: test-coverage-enforcer
-description: Use this agent when:\n\n1. New code has been written that requires unit tests\n2. Code has been modified and existing tests need to be updated or extended\n3. Code coverage metrics need to be improved\n4. CI/CD workflows need coverage baseline updates\n5. Proactive opportunities exist to strengthen test suites by identifying untested edge cases\n\nExamples:\n\n  <example>\n  Context: User just had another agent write a new function for validating user input.\n\nuser: "Please write a function that validates email addresses"\n\nassistant: "Here is the email validation function:"\n<function implementation omitted for brevity>\n\nassistant: "Now let me use the test-coverage-enforcer agent to create comprehensive unit tests for this new function."\n<Uses Agent tool to invoke test-coverage-enforcer>\n</example>\n\n  <example>\n  Context: Agent notices code was recently committed without corresponding test updates.\n\nassistant: "I notice that new utility functions were added in utils.ts in the recent commit. Let me proactively use the test-coverage-enforcer agent to ensure these have\ncomprehensive test coverage."\n<Uses Agent tool to invoke test-coverage-enforcer>\n</example>\n\n  <example>\n  Context: User is reviewing code coverage report and sees gaps.\n\nuser: "The coverage report shows our authentication module is only at 65% coverage"\n\nassistant: "I'll use the test-coverage-enforcer agent to analyze the authentication module, identify untested paths, and create tests to improve coverage."\n<Uses Agent tool to invoke test-coverage-enforcer>\n</example>
+description: |
+  Use this agent when:
+
+  1. New code has been written that requires unit tests
+  2. Code has been modified and existing tests need to be updated or extended
+  3. Code coverage metrics need to be improved
+  4. CI/CD workflows need coverage baseline updates
+  5. Proactive opportunities exist to strengthen test suites by identifying untested edge cases
+
+  Examples:
+
+    <example>
+    Context: User just had another agent write a new function for validating user input.
+
+  user: "Please write a function that validates email addresses"
+
+  A: "Here is the email validation function:"
+  <function implementation omitted for brevity>
+
+  A: "Now let me use the test-coverage-enforcer agent to create comprehensive unit tests for this new function."
+  <Uses Agent tool to invoke test-coverage-enforcer>
+  </example>
+
+    <example>
+    Context: Agent notices code was recently committed without corresponding test updates.
+
+  A: "I notice that new utility functions were added in utils.ts in the recent commit. Let me proactively use the test-coverage-enforcer agent to ensure these have
+  comprehensive test coverage."
+  <Uses Agent tool to invoke test-coverage-enforcer>
+  </example>
+
+    <example>
+    Context: User is reviewing code coverage report and sees gaps.
+
+  user: "The coverage report shows our authentication module is only at 65% coverage"
+
+  A: "I'll use the test-coverage-enforcer agent to analyze the authentication module, identify untested paths, and create tests to improve coverage."
+  <Uses Agent tool to invoke test-coverage-enforcer>
+  </example>
 model: sonnet
 color: purple
 ---
