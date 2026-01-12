@@ -26,8 +26,7 @@ description: |
     <example>
     Context: Agent notices code was recently committed without corresponding test updates.
 
-  A: "I notice that new utility functions were added in utils.ts in the recent commit. Let me proactively use the test-coverage-enforcer agent to ensure these have
-  comprehensive test coverage."
+  A: "I notice that new utility functions were added in utils.ts in the recent commit. Let me proactively use the test-coverage-enforcer agent to ensure these have comprehensive test coverage."
   <Uses Agent tool to invoke test-coverage-enforcer>
   </example>
 
