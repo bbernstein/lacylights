@@ -14,7 +14,7 @@ The LacyLights system consists of three main components:
 A professional stage lighting control system built with Go, GraphQL, and GORM. This server provides:
 - **GraphQL API** with real-time subscriptions
 - Multi-universe DMX512 control with priority system
-- Scene and cue list management with preview capabilities
+- Look and cue list management with preview capabilities
 - Fixture library with built-in and custom fixture definitions
 - Multi-user collaboration with role-based permissions
 - SQLite database with GORM for lightweight, portable storage
@@ -26,7 +26,7 @@ A professional stage lighting control system built with Go, GraphQL, and GORM. T
 A Next.js 15-based web frontend built with TypeScript and Tailwind CSS. It provides:
 - Real-time lighting control interface
 - Fixture management and DMX patching
-- Visual scene creation with channel controls
+- Visual look creation with channel controls
 - Cue list sequencing and playback
 - Live DMX output monitoring
 - Apollo Client for GraphQL integration with WebSocket subscriptions
@@ -37,7 +37,7 @@ A Next.js 15-based web frontend built with TypeScript and Tailwind CSS. It provi
 ### 🤖 lacylights-mcp - AI Integration Server
 An MCP (Model Context Protocol) server that provides AI-powered theatrical lighting design capabilities:
 - **Fixture Analysis** - Query and analyze lighting fixture capabilities
-- **Scene Generation** - AI-powered scene creation based on script context and artistic intent
+- **Look Generation** - AI-powered look creation based on script context and artistic intent
 - **Script Analysis** - Extract lighting cues and moments from theatrical scripts
 - **Cue Management** - Generate and optimize complete cue sequences for acts
 - **RAG System** - Vector-based pattern matching for intelligent lighting suggestions
@@ -85,13 +85,13 @@ A native Swift/SwiftUI application for macOS that provides turnkey setup and man
                            └──────────────────┘
 ```
 
-1. **Frontend Control**: Users interact with the web interface (lacylights-fe) to manually control fixtures, create scenes, and manage cue lists. The frontend uses Apollo Client to communicate via GraphQL queries, mutations, and subscriptions.
+1. **Frontend Control**: Users interact with the web interface (lacylights-fe) to manually control fixtures, create looks, and manage cue lists. The frontend uses Apollo Client to communicate via GraphQL queries, mutations, and subscriptions.
 
 2. **Backend Processing**: The frontend communicates with the backend engine (lacylights-go) via GraphQL API with WebSocket support for real-time updates. The backend manages all lighting state, processes commands, and outputs DMX signals to physical lighting fixtures.
 
 3. **AI Enhancement**: The MCP server (lacylights-mcp) connects to the same GraphQL API and provides an additional control path, allowing AI assistants to:
    - Analyze theatrical scripts and suggest lighting designs
-   - Generate scenes based on natural language descriptions
+   - Generate looks based on natural language descriptions
    - Optimize existing lighting setups
    - Provide intelligent automation for complex lighting sequences
 
