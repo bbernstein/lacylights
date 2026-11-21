@@ -40,6 +40,11 @@ docs/OTBPA*/
 *.db-*
 *.sqlite
 *.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.db-journal
+*-wal
+*-shm
 .env
 .env.*
 *.pem
